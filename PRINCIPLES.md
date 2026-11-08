@@ -107,3 +107,15 @@ Cockpit drives co-pilots and crews; it never pretends to be the agent.
 avoids overreach and keeps control with the operator.
 
 **Applies to.** Every tool and feature in the lab.
+
+## P-011 — Research before creating a new repo
+
+Start research in the research repo; graduate to a dedicated repo only after
+research is complete and a named consumer + pain exists. No new repo from a
+hunch.
+
+**Rationale.** A new repo is a long-lived commitment. Researching first in a
+shared research space keeps experiments cheap and prevents orphaned repos.
+Graduation requires evidence, not enthusiasm.
+
+**Applies to.** Every tool and feature in the lab.
