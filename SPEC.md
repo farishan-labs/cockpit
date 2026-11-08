@@ -10,6 +10,26 @@ Cockpit is an **aggregator, not a replacement**. It reuses, aggregates, and
 extends existing tooling (herdr, pi, opencode, nakama, tmux, ...). It never
 reinvents an exact wheel.
 
+## Prior art & adapters (research gate)
+
+Cockpit is built **after** surveying the landscape; see README "Landscape".
+No reimplementation of an existing wheel. Concrete dependencies/adapters:
+
+- **tmux** — default terminal backend (M1).
+- **herdr-core (`hc`)** — enhanced terminal backend + multi-machine + OSC 7501
+  status + OpenRPC API (Go client on pkg.go.dev). Candidate to *replace* the
+  tmux backend if it proves strictly better; until then, tmux is the
+  zero-friction default.
+- **pi** — inspiration for minimal core + programmable extensions; optional
+  adapter for skill/extension discovery.
+- **opencode** — adapter for session listing / agent invocation.
+- **nakama** — adapter only if real-time multi-agent coordination need
+  emerges (M3+); not a core dependency.
+- **SuperBased / Open Orchestrator / agent-cockpit / AI Agent Session Center**
+  — studied as alternatives; cockpit differentiates via tool registry +
+  programmable extensions + single static Go binary + composition principle.
+  If the angle does not hold, pivot to contributing to one of them.
+
 ## Principles (non-negotiable)
 
 1. **Never reinvent exact wheels.** If a proven tool already does it, depend

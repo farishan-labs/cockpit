@@ -2,6 +2,13 @@
 
 Status: Draft. Owner: Faris Han (+ agents). Repo: farishan-labs/cockpit.
 
+## Research gate (mandatory before code)
+
+Before writing any feature code, survey the landscape (README "Landscape" +
+SPEC "Prior art"). If a proven tool already does it, depend on / aggregate /
+extend it. Document the decision (reuse vs. build) in the PR/commit. No
+silent reinvention.
+
 ## Guiding principles
 
 - Never reinvent exact wheels: reuse/aggregate/extend (herdr, pi, opencode,
