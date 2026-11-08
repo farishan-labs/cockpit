@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# cockpit — open the Faris Han Labs control plane (herdr-app) at the preferred dir
+# with opencode ready. Idempotent: re-running reuses an existing matching space.
+set -euo pipefail
+
+PREFERRED_DIR="${COCKPIT_DIR:-$HOME/dev/labs}"
+SPACE_NAME="${COCKPIT_SPACE_NAME:-$(basename "$PREFERRED_DIR")}"
+
+# --- checks ---------------------------------------------------------------
+if ! command -v herdr-app >/dev/null 2>&1; then
+  echo "cockpit: 'herdr-app' is not installed or not on PATH." >&2
+  echo "Install herdr-app first, then re-run 'cockpit'." >&2
+  exit 1
+fi
+
+if ! command -v opencode >/dev/null 2>&1; then
+  echo "cockpit: 'opencode' is not installed or not on PATH." >&2
+  echo "Install opencode first, then re-run 'cockpit'." >&2
+  exit 1
+fi
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "cockpit: 'python3' is required to parse herdr-app output." >&2
+  exit 1
+fi
+
+mkdir -p "$PREFERRED_DIR"
+
+# --- ensure herdr-app window is running -----------------------------------
+if ! herdr-app status >/dev/null 2>&1; then
+  echo "cockpit: starting herdr-app..."
+  nohup herdr-app >/dev/null 2>&1 &
+  for _ in $(seq 1 50); do
+    herdr-app status >/dev/null 2>&1 && break
+    sleep 0.2
+  done
+  if ! herdr-app status >/dev/null 2>&1; then
+    echo "cockpit: herdr-app did not start." >&2
+    exit 1
+  fi
+fi
+
+# --- reuse an existing space at the preferred dir with opencode -------------
+export COCKPIT_PREFERRED_DIR="$PREFERRED_DIR"
+space_id="$(herdr-app ls 2>/dev/null | python3 -c '
+import json, os, sys
+pref = os.environ["COCKPIT_PREFERRED_DIR"]
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+candidates = []
+for s in data.get("spaces", []):
+    if s.get("folder") != pref:
+        continue
+    has_oc = any(
+        t.get("app") == "opencode"
+        for tab in s.get("tabs", [])
+        for t in tab.get("terminals", [])
+    )
+    if has_oc:
+        candidates.append(s)
+if not candidates:
+    sys.exit(0)
+active = [s for s in candidates if s.get("active")]
+pick = (active or candidates)[0]
+print(pick.get("id", ""))
+' || true)"
+
+if [ -n "${space_id:-}" ]; then
+  herdr-app do space.select --id "$space_id" >/dev/null 2>&1 || true
+  echo "cockpit: opened existing space at $PREFERRED_DIR (opencode ready)."
+else
+  herdr-app do space.new --name "$SPACE_NAME" --folder "$PREFERRED_DIR" --argv '["opencode"]' >/dev/null
+  echo "cockpit: created space '$SPACE_NAME' at $PREFERRED_DIR with opencode."
+fi
+
+# --- raise the window ------------------------------------------------------
+herdr-app >/dev/null 2>&1 || true
+exit 0

@@ -87,6 +87,17 @@ zero runtime deps, and (d) is honest about prior art. If that angle does not
 hold up against SuperBased / herdr / Open Orchestrator, the right move is to
 **contribute to one of them** instead of shipping a parallel product.
 
+## Install (one line)
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/farishan-labs/cockpit/main/scripts/install.sh | bash
+```
+
+Idempotent and safe to re-run: it (re)installs the `cockpit` command to
+`~/.local/bin/cockpit`. Then type `cockpit` in a plain bash terminal to check
+and open `herdr-app` with a default space at `~/dev/labs` and `opencode` ready
+(override the dir with `COCKPIT_DIR=/path/to/dir cockpit`).
+
 ## Quick start (dev)
 
 ```sh
