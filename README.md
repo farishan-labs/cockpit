@@ -6,7 +6,7 @@ A **human+AI control plane**: one place to see the dashboard, control things
 (install/enable/disable tools), and drive co-pilots and crews (agents).
 
 Cockpit is an **aggregator, not a replacement**. It reuses, aggregates, and
-extends existing tooling — herdr, pi, opencode, nakama, tmux, SQLite — and
+extends existing tooling — herdr, pi, opencode, nakama (ahmadrosid), tmux, SQLite — and
 never reinvents an exact wheel. Zero vendor lock-in.
 
 ## Status
@@ -67,11 +67,11 @@ The big ones:
 | **Claude Code Agent View** | Built-in multi-agent cockpit | Baseline to beat on UX, not on scope |
 | **AgentsRoom** | Native desktop app for parallel agents | Reference for multi-project UX |
 
-### Game / real-time backends (reuse if a concrete need lands)
+### AI agent platforms (reuse if a concrete need lands)
 
 | Tool | What it does | Reuse plan |
 |------|--------------|------------|
-| **Nakama** | Open-source game server (real-time multiplayer, matchmaking, leaderboards) | **Adapter only if** multi-agent coordination/real-time collaboration need emerges (M3+). Not a core dependency. |
+| **Nakama** (ahmadrosid) | AI agent platform for teams: self-hosted, multi-org, agents with tools, skills, memory, and channels (Telegram/WhatsApp/Discord/Slack) | **Reference/alternative** (M3+); study its multi-org + agent identity + channel model. Not a core dependency. |
 
 ### Tooling / libraries we build on (not reinvent)
 
