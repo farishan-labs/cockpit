@@ -16,7 +16,12 @@ M1 code. See [PLAN.md](./PLAN.md) and [SPEC.md](./SPEC.md).
 
 ## Principles
 
-See [PRINCIPLES.md](./PRINCIPLES.md). The big ones:
+Canonical principles live in the [`farishan-labs/principles`](https://github.com/farishan-labs/principles)
+repo (pinned as a git submodule at `./principles`, currently v1.0.0).
+`[PRINCIPLES.md](./PRINCIPLES.md)` is **derived** from it — regenerate with
+`./scripts/sync-principles.sh`. Do not edit `PRINCIPLES.md` by hand.
+
+The big ones:
 
 - Never reinvent exact wheels.
 - Zero vendor lock-in.

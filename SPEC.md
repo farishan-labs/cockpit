@@ -32,17 +32,20 @@ No reimplementation of an existing wheel. Concrete dependencies/adapters:
 
 ## Principles (non-negotiable)
 
-1. **Never reinvent exact wheels.** If a proven tool already does it, depend
-   on it or wrap it. Build only the glue and the control plane.
-2. **Zero vendor lock-in.** Open formats, portable code, self-hostable. No
-   dependency on a single giant tech company's proprietary service.
-3. **Minimal core.** Like Pi: keep the core tiny, push everything else into
-   extensions. Like herdr-core: draws nothing, guesses nothing.
-4. **Programmable extensions.** Extensions are code (scripts/binaries) with
-   a manifest and hook points, not config toggles. The agent can author them.
-5. **Single static binary.** `cockpit` installs as one file. No runtime deps
-   for the core (Go, no CGO).
-6. **Open and shared.** Apache-2.0 (or MIT). Others can self-host and fork.
+Canonical source: [`farishan-labs/principles`](https://github.com/farishan-labs/principles)
+(pinned submodule `./principles`). Cockpit's `PRINCIPLES.md` is derived from
+it. Do not duplicate or edit principles here; reference by id (P-001..).
+
+1. **Never reinvent exact wheels.** (P-001)
+2. **Zero vendor lock-in.** (P-002)
+3. **Minimal core.** (P-003)
+4. **Programmable extensions.** (P-004)
+5. **Single static binary.** (P-005)
+6. **Open and shared.** (P-006)
+7. **Reuse before build.** (P-007)
+8. **Reliability over novelty.** (P-008)
+9. **Small and focused.** (P-009)
+10. **Human sets direction, agents execute.** (P-010)
 
 ## Architecture
 

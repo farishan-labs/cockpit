@@ -1,0 +1,3 @@
+[submodule "principles"]
+	path = principles
+	url = https://github.com/farishan-labs/principles.git
