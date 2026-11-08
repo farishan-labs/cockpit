@@ -1,0 +1,25 @@
+# Binaries
+cockpit
+*.exe
+*.test
+
+# Build output
+dist/
+build/
+
+# Local config / data
+cockpit.db
+*.db
+cockpit.jsonl
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+vendor/
