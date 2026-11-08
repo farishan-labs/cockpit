@@ -119,3 +119,118 @@ shared research space keeps experiments cheap and prevents orphaned repos.
 Graduation requires evidence, not enthusiasm.
 
 **Applies to.** Every tool and feature in the lab.
+
+## P-012 — Canonical files are plain markdown/JSON
+
+Canonical content is plain markdown/JSON, never harness syntax. Adapters render it
+into harness-specific formats.
+
+**Rationale.** Plain formats outlive any single harness and stay diffable,
+portable, and human-editable.
+
+**Applies to.** Every tool and feature in the lab.
+
+## P-013 — Adapters are the only harness-aware code
+
+Core logic stays harness-agnostic; only adapters know about a specific harness's
+config, tool names, or extensions.
+
+**Rationale.** Keeps the core portable and lets new harnesses be added without
+touching shared logic.
+
+**Applies to.** Every tool and feature in the lab.
+
+## P-014 — Skills declare their capabilities
+
+Skills keep their markdown body but gain frontmatter declaring `requires`,
+`optional`, and `min-context`. Adapters skip or fall back when a requirement
+is missing.
+
+**Rationale.** Makes skill portability explicit and lets runtimes degrade
+gracefully instead of failing at call time.
+
+**Applies to.** Every tool and feature in the lab.
+
+## P-015 — Never store secrets in shared memory
+
+Shared memory holds only non-sensitive facts. API keys, tokens, passwords,
+private keys, session cookies, and sensitive personal/financial data are never
+stored; scan before committing.
+
+**Rationale.** Shared memory is synced across machines and agents; a leak there
+is a leak everywhere.
+
+**Applies to.** Every tool and feature in the lab.
+
+## P-016 — Scan for secrets before committing
+
+Run the secret scanner before every commit that touches shared or synced data.
+
+**Rationale.** Automated scanning is the cheap, automatic check; humans miss
+things under time pressure.
+
+**Applies to.** Every tool and feature in the lab.
+
+## P-017 — Durable changes are announced
+
+Any change to a durable fact (URL, service, credential location, port, tunnel,
+Access app) is committed together with an inbox note to other agents and an
+update to the shared memory's ground truth.
+
+**Rationale.** Silent durable changes desync agents and machines; co-committing
+the announcement keeps everyone aligned.
+
+**Applies to.** Every tool and feature in the lab.
+
+## P-018 — Forager only forages
+
+A foraging tool discovers and catalogs sources; it never swaps, rotates, or
+fails over consumers. Consumers decide how to use what was found.
+
+**Rationale.** Keeps a discovery tool's scope small and prevents it from
+becoming a hidden control plane (P-009).
+
+**Applies to.** Every tool and feature in the lab.
+
+## P-019 — Keys are manual; never sign up on behalf of the user
+
+A tool never creates accounts or signs up on the user's behalf. The user
+provides keys manually.
+
+**Rationale.** Account creation is a consent and identity action that must stay
+with the human operator.
+
+**Applies to.** Every tool and feature in the lab.
+
+## P-020 — CLIs follow open conventions
+
+Command-line tools follow open conventions: POSIX/GNU option syntax, XDG base
+directories, `NO_COLOR`/`TERM=dumb`/TTY-aware color, stdout for data and
+stderr for messaging, standard exit codes (0 success, 2 usage error), and
+machine-readable output via `--json`/`--plain`.
+
+**Rationale.** Predictable CLIs compose with other tools and scripts; ad hoc
+conventions break pipelines.
+
+**Applies to.** Every tool and feature in the lab.
+
+## P-021 — Research gate before feature code
+
+Before writing feature code, survey the landscape. If a proven tool already
+does it, depend on, aggregate, or extend it. Document the reuse-vs-build
+decision in the PR or commit. No silent reinvention.
+
+**Rationale.** Extends P-001/P-007/P-011 from repos and features to individual
+features, keeping the research habit cheap and automatic.
+
+**Applies to.** Every tool and feature in the lab.
+
+## P-022 — Degrade gracefully
+
+When a capability (tool, MCP server, model feature) is missing, skip or fall
+back rather than fail. Never assume every environment has everything.
+
+**Rationale.** Tools run across machines with different setups; hard
+dependencies on optional capabilities break portability (P-002).
+
+**Applies to.** Every tool and feature in the lab.
