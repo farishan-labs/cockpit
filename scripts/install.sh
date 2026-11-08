@@ -2,7 +2,7 @@
 # Idempotent installer for the 'cockpit' command.
 set -euo pipefail
 
-REPO_RAW="https://raw.githubusercontent.com/farishan-labs/cockpit/main"
+REPO_RAW="https://farishan-labs.github.io/cockpit"
 BIN_DIR="${HOME}/.local/bin"
 
 mkdir -p "$BIN_DIR"

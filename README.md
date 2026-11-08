@@ -90,7 +90,7 @@ hold up against SuperBased / herdr / Open Orchestrator, the right move is to
 ## Install (one line)
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/farishan-labs/cockpit/main/scripts/install.sh | bash
+curl -fsSL https://farishan-labs.github.io/cockpit/scripts/install.sh | bash
 ```
 
 Idempotent and safe to re-run: it (re)installs the `cockpit` command to
