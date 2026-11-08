@@ -23,6 +23,7 @@ mv -f "$tmp" "${BIN_DIR}/cockpit"
 trap - EXIT
 
 echo "cockpit: installed to ${BIN_DIR}/cockpit"
+echo "Try typing \`cockpit\` and press enter."
 
 case ":${PATH}:" in
   *":${BIN_DIR}:"*) ;;
