@@ -17,19 +17,9 @@ M1 code. See [PLAN.md](./PLAN.md) and [SPEC.md](./SPEC.md).
 ## Principles
 
 Canonical principles live in the [`farishan-labs/principles`](https://github.com/farishan-labs/principles)
-repo (pinned as a git submodule at `./principles`, currently v1.3.0).
-`[PRINCIPLES.md](./PRINCIPLES.md)` is **derived** from it — regenerate with
-`./scripts/sync-principles.sh`. Do not edit `PRINCIPLES.md` by hand.
-`[TOP_PRINCIPLES.md](./TOP_PRINCIPLES.md)` is the cheap, always-loadable
-top tier (6 principles); load it first.
-
-The big ones:
-
-- Never reinvent exact wheels.
-- Zero vendor lock-in.
-- Minimal core; programmable extensions.
-- Single static binary.
-- Open and shared.
+repo. Cockpit does not vendor or derive them (P-024: single source, no drift);
+reference by id (P-001..) and link to the source. Load the principles repo's
+`TOP_PRINCIPLES.md` directly when needed.
 
 ## Landscape: inspirations, alternatives, adapters
 
@@ -114,7 +104,6 @@ cmd/cockpit/        # CLI entrypoint (cobra)
 internal/version/   # build version
 SPEC.md             # specification
 PLAN.md             # milestones
-PRINCIPLES.md       # non-negotiables
 ```
 
 ## License

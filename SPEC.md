@@ -32,9 +32,9 @@ No reimplementation of an existing wheel. Concrete dependencies/adapters:
 
 ## Principles (non-negotiable)
 
-Canonical source: [`farishan-labs/principles`](https://github.com/farishan-labs/principles)
-(pinned submodule `./principles`). Cockpit's `PRINCIPLES.md` is derived from
-it. Do not duplicate or edit principles here; reference by id (P-001..).
+Canonical source: [`farishan-labs/principles`](https://github.com/farishan-labs/principles).
+Cockpit does not vendor or derive principles (P-024); reference by id
+(P-001..) and link to source. Core ones:
 
 1. **Never reinvent exact wheels.** (P-001)
 2. **Zero vendor lock-in.** (P-002)

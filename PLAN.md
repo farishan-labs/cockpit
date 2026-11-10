@@ -24,7 +24,7 @@ silent reinvention.
 - [x] Repo created (farishan-labs/cockpit, public).
 - [x] Go module scaffolded (go 1.24, cobra).
 - [x] SPEC.md, PRINCIPLES.md, PLAN.md, README.md.
-- [x] Principles externalized to farishan-labs/principles (submodule; derived PRINCIPLES.md).
+- [x] Principles externalized to farishan-labs/principles (linked, not vendored; see P-024).
 - [ ] LICENSE (Apache-2.0).
 - [ ] CI: gofmt, go vet, go test, build (GitHub Actions).
 - [ ] goreleaser config for single-binary releases.
