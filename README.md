@@ -1,5 +1,8 @@
 # Cockpit
 
+![License](https://img.shields.io/github/license/farishan-labs/cockpit) ![Stars](https://img.shields.io/github/stars/farishan-labs/cockpit)
+
+
 The first thing installed and opened when operating the **Faris Han Labs**.
 
 A **human+AI control plane**: one place to see the dashboard, control things
@@ -111,3 +114,9 @@ PLAN.md             # milestones
 Apache-2.0 (to be added).
 EOF
 echo written
+
+## Installation
+
+```bash
+go get github.com/farishan-labs/cockpit
+```
