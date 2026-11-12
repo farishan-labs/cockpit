@@ -110,5 +110,3 @@ repo. Cockpit does not vendor or derive them (P-024); reference by id and link.
 ## License
 
 Apache-2.0
-EOF
-echo written
