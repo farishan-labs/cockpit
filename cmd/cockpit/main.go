@@ -7,6 +7,7 @@ import (
 	"github.com/farishan-labs/cockpit/internal/agents"
 	"github.com/farishan-labs/cockpit/internal/config"
 	"github.com/farishan-labs/cockpit/internal/daemon"
+	"github.com/farishan-labs/cockpit/internal/herdr"
 	"github.com/farishan-labs/cockpit/internal/storage"
 	"github.com/farishan-labs/cockpit/internal/terminal"
 	"github.com/farishan-labs/cockpit/internal/tui"
@@ -20,6 +21,21 @@ func main() {
 		Short: "The Faris Han Labs control plane: a human+AI cockpit.",
 		Long: `cockpit aggregates and extends existing tools (herdr, pi, opencode, nakama, ...)
 into one minimal, extensible control plane. It reuses wheels; it does not reinvent them.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// default: run the daemon
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+			store, err := storage.Open(cfg.DBPath)
+			if err != nil {
+				return err
+			}
+			defer store.Close()
+			backend := terminal.NewTmux()
+			d := daemon.New(cfg, store, backend)
+			return d.Run()
+		},
 	}
 
 	root.AddCommand(&cobra.Command{
@@ -92,6 +108,17 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 		},
 	}
 	root.AddCommand(tuiCmd)
+
+	openCmd := &cobra.Command{
+		Use:   "open",
+		Short: "Open the herdr workspace (legacy cockpit launcher).",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			pd := herdr.PreferredDir()
+			sn := herdr.SpaceName(pd)
+			return herdr.Open(pd, sn)
+		},
+	}
+	root.AddCommand(openCmd)
 
 	if err := root.Execute(); err != nil {
 		fmt.Println(err)
