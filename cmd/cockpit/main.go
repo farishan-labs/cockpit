@@ -17,6 +17,7 @@ import (
 	"github.com/farishan-labs/cockpit/internal/storage"
 	"github.com/farishan-labs/cockpit/internal/terminal"
 	"github.com/farishan-labs/cockpit/internal/toolreg"
+	"github.com/farishan-labs/cockpit/internal/workflow"
 	"github.com/farishan-labs/cockpit/internal/tui"
 	"github.com/farishan-labs/cockpit/internal/version"
 	"github.com/spf13/cobra"
@@ -157,6 +158,11 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 			b := terminal.NewTmux()
 			fmt.Printf("config: %s\n", config.Path())
 			fmt.Printf("port: %d\n", cfg.Port)
+			if m, err := workflow.Load(""); err == nil {
+				fmt.Printf("workflow manifest: %s (v%s, %s)\n", workflow.Path(), m.Meta.Version, m.Meta.Status)
+			} else {
+				fmt.Printf("workflow manifest: %v\n", err)
+			}
 			fmt.Printf("tmux: %v\n", b.Available())
 			fmt.Printf("agents:\n")
 			for _, a := range agents.Detect() {
