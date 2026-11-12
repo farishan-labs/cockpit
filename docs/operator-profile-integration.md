@@ -115,8 +115,8 @@ Land these in cockpit M2/M3, in order:
 ## E-lite: shared manifest (now exists)
 
 Canonical location: `farishan/agent/workflow.toml`, installed at
-`~/.config/fhl/workflow.toml`. Cockpit and `usermd-check --workflow` read this
-file; do not duplicate it. Sketch retained for history:
+`~/.config/fhl/workflow.toml`. Cockpit reads this file; `usermd-check` does
+not (it validates USER.md only). Sketch retained for history:
 
 ```toml
 # ~/.config/fhl/workflow.toml  (canonical: farishan/agent/workflow.toml)
@@ -136,10 +136,8 @@ engine = "openspec"          # spec management system (cockpit, user-md, agent)
 root   = "openspec/"
 ```
 
-`cockpit` reads `[operator]` + `[agents]` + `[mode]` at startup;
-`usermd-check --workflow ~/.config/fhl/workflow.toml` validates that the
-referenced `USER.md` exists, passes cap/secrets/contradiction checks, and that
-`user_md_path` is consistent with the machine profile.
+`cockpit` reads `[operator]` + `[agents]` + `[mode]` at startup. `usermd-check`
+is not involved in manifest validation (its `--workflow` flag is prohibited).
 
 ## Keep the splits (do not violate)
 
@@ -154,8 +152,8 @@ referenced `USER.md` exists, passes cap/secrets/contradiction checks, and that
 
 - **Phase 0 (now)**: this doc + config key + doctor check. ~1 day.
 - **Phase 1**: launch injection + Operator UI panel. ~2-3 days.
-- **Phase 2**: shared workflow manifest (E-lite) + usermd-check `--workflow`
-  flag. ~1 week.
+- **Phase 2**: shared workflow manifest (E-lite). `usermd-check --workflow` is
+  prohibited, so no change to user-md. ~1 week.
 - **Phase 3**: extension B + tool sync C + memory bridge G. Depends on
   cockpit M2 extension loader. ~2 weeks.
 
