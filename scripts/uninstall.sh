@@ -10,6 +10,7 @@ if [ -e "$BIN" ]; then
 else
   echo "cockpit: not installed at $BIN"
 fi
+rm -f "${HOME}/.local/bin/cockpit-tray"
 
 if [ -f "${BIN}.legacy" ]; then
   echo "A legacy launcher backup exists at ${BIN}.legacy"

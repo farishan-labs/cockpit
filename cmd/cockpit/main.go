@@ -5,6 +5,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"syscall"
+	"time"
 
 	"github.com/charmbracelet/bubbletea"
 	"github.com/farishan-labs/cockpit/internal/agents"
@@ -14,9 +17,104 @@ import (
 	"github.com/farishan-labs/cockpit/internal/storage"
 	"github.com/farishan-labs/cockpit/internal/terminal"
 	"github.com/farishan-labs/cockpit/internal/tui"
-	"github.com/farishan-labs/cockpit/internal/version"
 	"github.com/spf13/cobra"
 )
+
+var foreground bool
+
+func pidPath() string {
+	return filepath.Join(config.Dir(), "cockpit.pid")
+}
+
+func readPID() (int, bool) {
+	b, err := os.ReadFile(pidPath())
+	if err != nil {
+		return 0, false
+	}
+	pid, err := strconv.Atoi(string(b))
+	if err != nil {
+		return 0, false
+	}
+	return pid, true
+}
+
+func isRunning(pid int) bool {
+	p, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	// signal 0 checks existence
+	if err := p.Signal(syscall.Signal(0)); err != nil {
+		return false
+	}
+	return true
+}
+
+func stopDaemon() error {
+	pid, ok := readPID()
+	if !ok || !isRunning(pid) {
+		os.Remove(pidPath())
+		fmt.Println("cockpit: not running")
+		return nil
+	}
+	p, _ := os.FindProcess(pid)
+	if err := p.Signal(syscall.SIGTERM); err != nil {
+		return err
+	}
+	// wait briefly
+	for i := 0; i < 25; i++ {
+		if !isRunning(pid) {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	os.Remove(pidPath())
+	fmt.Println("cockpit: stopped")
+	return nil
+}
+
+func serveForeground() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	store, err := storage.Open(cfg.DBPath)
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+	backend := terminal.NewTmux()
+	d := daemon.New(cfg, store, backend)
+	_ = agents.Detect()
+	return d.Run()
+}
+
+func serveBackground() error {
+	if pid, ok := readPID(); ok && isRunning(pid) {
+		fmt.Printf("cockpit: already running (pid %d)\n", pid)
+		return nil
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command(exe, "serve", "--foreground")
+	cmd.Stdout, _ = os.OpenFile(filepath.Join(config.Dir(), "cockpit.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	cmd.Stderr = cmd.Stdout
+	// detach
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	pid := cmd.Process.Pid
+	// detach process
+	_ = cmd.Process.Release()
+	cfg, _ := config.Load()
+	_ = os.WriteFile(pidPath(), []byte(strconv.Itoa(pid)), 0o644)
+	fmt.Printf("cockpit: started in background (pid %d)\n", pid)
+	fmt.Printf("cockpit: ui -> http://127.0.0.1:%d (see %s for logs)\n", cfg.Port, filepath.Join(config.Dir(), "cockpit.log"))
+	return nil
+}
 
 func main() {
 	root := &cobra.Command{
@@ -25,55 +123,26 @@ func main() {
 		Long: `cockpit aggregates and extends existing tools (herdr, pi, opencode, nakama, ...)
 into one minimal, extensible control plane. It reuses wheels; it does not reinvent them.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// default: run the daemon
-			cfg, err := config.Load()
-			if err != nil {
-				return err
+			if foreground {
+				return serveForeground()
 			}
-			store, err := storage.Open(cfg.DBPath)
-			if err != nil {
-				return err
-			}
-			defer store.Close()
-			backend := terminal.NewTmux()
-			d := daemon.New(cfg, store, backend)
-			return d.Run()
+			return serveBackground()
 		},
 	}
 
-	root.AddCommand(&cobra.Command{
-		Use:   "version",
-		Short: "Print version information.",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("cockpit %s (commit %s, built %s)\n", version.Version, version.Commit, version.Date)
-		},
-	})
+	root.PersistentFlags().BoolVar(&foreground, "foreground", false, "run in foreground (do not daemonize)")
 
 	serve := &cobra.Command{
 		Use:   "serve",
 		Short: "Run the cockpit core daemon (web UI on localhost).",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load()
-			if err != nil {
-				return err
+			if foreground {
+				return serveForeground()
 			}
-			store, err := storage.Open(cfg.DBPath)
-			if err != nil {
-				return err
-			}
-			defer store.Close()
-			var backend terminal.Backend
-			switch cfg.TerminalBackend {
-			case "tmux":
-				backend = terminal.NewTmux()
-			default:
-				backend = terminal.NewTmux()
-			}
-			d := daemon.New(cfg, store, backend)
-			_ = agents.Detect()
-			return d.Run()
+			return serveBackground()
 		},
 	}
+	serve.Flags().BoolVar(&foreground, "foreground", false, "run in foreground (do not daemonize)")
 	root.AddCommand(serve)
 
 	doctor := &cobra.Command{
@@ -95,10 +164,39 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 			} else {
 				fmt.Printf("storage: %v\n", err)
 			}
+			if pid, ok := readPID(); ok && isRunning(pid) {
+				fmt.Printf("daemon: running (pid %d)\n", pid)
+			} else {
+				fmt.Println("daemon: stopped")
+			}
 			return nil
 		},
 	}
 	root.AddCommand(doctor)
+
+	stop := &cobra.Command{
+		Use:   "stop",
+		Short: "Stop the background cockpit daemon.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return stopDaemon()
+		},
+	}
+	root.AddCommand(stop)
+
+	status := &cobra.Command{
+		Use:   "status",
+		Short: "Show whether the cockpit daemon is running.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if pid, ok := readPID(); ok && isRunning(pid) {
+				fmt.Printf("cockpit: running (pid %d)\n", pid)
+			} else {
+				fmt.Println("cockpit: stopped")
+				os.Remove(pidPath())
+			}
+			return nil
+		},
+	}
+	root.AddCommand(status)
 
 	tuiCmd := &cobra.Command{
 		Use:   "tui",
@@ -122,6 +220,29 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 		},
 	}
 	root.AddCommand(openCmd)
+
+	trayCmd := &cobra.Command{
+		Use:   "tray",
+		Short: "Run the Ubuntu tray indicator (requires cockpit-tray).",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// try installed script
+			home, _ := os.UserHomeDir()
+			candidates := []string{
+				filepath.Join(home, ".local", "bin", "cockpit-tray"),
+				filepath.Join(home, "dev", "labs", "cockpit", "scripts", "cockpit-tray.py"),
+			}
+			for _, c := range candidates {
+				if _, err := os.Stat(c); err == nil {
+					cmd := exec.Command(c)
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+					return cmd.Run()
+				}
+			}
+			return fmt.Errorf("cockpit-tray not found; install it first")
+		},
+	}
+	root.AddCommand(trayCmd)
 
 	uninstallCmd := &cobra.Command{
 		Use:   "uninstall",
@@ -169,5 +290,6 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 
 	if err := root.Execute(); err != nil {
 		fmt.Println(err)
+		os.Exit(1)
 	}
 }

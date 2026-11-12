@@ -25,6 +25,13 @@ echo "cockpit: installing to $BIN"
 install -m 0755 /tmp/cockpit-build "$BIN"
 rm -f /tmp/cockpit-build
 
+# tray indicator (optional, Ubuntu)
+TRAY="${BIN_DIR}/cockpit-tray"
+if [ -f "${ROOT}/scripts/cockpit-tray.py" ]; then
+  install -m 0755 "${ROOT}/scripts/cockpit-tray.py" "$TRAY"
+  echo "cockpit: tray indicator installed to $TRAY"
+fi
+
 echo "cockpit: installed."
 case ":${PATH}:" in
   *":${BIN_DIR}:"*) ;;
