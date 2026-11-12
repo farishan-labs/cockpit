@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 
 	"github.com/charmbracelet/bubbletea"
 	"github.com/farishan-labs/cockpit/internal/agents"
@@ -119,6 +122,50 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 		},
 	}
 	root.AddCommand(openCmd)
+
+	uninstallCmd := &cobra.Command{
+		Use:   "uninstall",
+		Short: "Uninstall the cockpit binary (restores legacy launcher if present).",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			home, _ := os.UserHomeDir()
+			bin := filepath.Join(home, ".local", "bin", "cockpit")
+			legacy := bin + ".legacy"
+			if _, err := os.Stat(bin); err == nil {
+				if err := os.Remove(bin); err != nil {
+					return err
+				}
+				fmt.Println("cockpit: removed", bin)
+			} else {
+				fmt.Println("cockpit: not installed at", bin)
+			}
+			if _, err := os.Stat(legacy); err == nil {
+				if err := os.Rename(legacy, bin); err != nil {
+					return err
+				}
+				fmt.Println("cockpit: restored legacy launcher to", bin)
+			}
+			return nil
+		},
+	}
+	root.AddCommand(uninstallCmd)
+
+	installCmd := &cobra.Command{
+		Use:   "install",
+		Short: "Build and install cockpit from source (requires the repo).",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			home, _ := os.UserHomeDir()
+			repo := filepath.Join(home, "dev", "labs", "cockpit")
+			script := filepath.Join(repo, "scripts", "install-local.sh")
+			if _, err := os.Stat(script); err != nil {
+				return fmt.Errorf("install script not found at %s; clone the repo first", script)
+			}
+			c := exec.Command("bash", script)
+			c.Stdout = os.Stdout
+			c.Stderr = os.Stderr
+			return c.Run()
+		},
+	}
+	root.AddCommand(installCmd)
 
 	if err := root.Execute(); err != nil {
 		fmt.Println(err)
