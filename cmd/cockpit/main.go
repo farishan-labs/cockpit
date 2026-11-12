@@ -233,27 +233,110 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 	}
 	root.AddCommand(openCmd)
 
-	trayCmd := &cobra.Command{
-		Use:   "tray",
-		Short: "Run the Ubuntu tray indicator (requires cockpit-tray).",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// try installed script
-			home, _ := os.UserHomeDir()
-			candidates := []string{
-				filepath.Join(home, ".local", "bin", "cockpit-tray"),
-				filepath.Join(home, "dev", "labs", "cockpit", "scripts", "cockpit-tray.py"),
+	trayBin := func() string {
+		home, _ := os.UserHomeDir()
+		candidates := []string{
+			filepath.Join(home, ".local", "bin", "cockpit-tray"),
+			filepath.Join(home, "dev", "labs", "cockpit", "scripts", "cockpit-tray.py"),
+		}
+		for _, c := range candidates {
+			if _, err := os.Stat(c); err == nil {
+				return c
 			}
-			for _, c := range candidates {
-				if _, err := os.Stat(c); err == nil {
-					cmd := exec.Command(c)
-					cmd.Stdout = os.Stdout
-					cmd.Stderr = os.Stderr
-					return cmd.Run()
+		}
+		return ""
+	}
+
+	trayPidPath := filepath.Join(config.Dir(), "cockpit-tray.pid")
+
+	trayStart := func(fg bool) error {
+		bin := trayBin()
+		if bin == "" {
+			return fmt.Errorf("cockpit-tray not found; run cockpit install")
+		}
+		if b, err := os.ReadFile(trayPidPath); err == nil {
+			if pid, err := strconv.Atoi(string(b)); err == nil {
+				if p, err := os.FindProcess(pid); err == nil && p.Signal(syscall.Signal(0)) == nil {
+					fmt.Printf("cockpit-tray: already running (pid %d)\n", pid)
+					return nil
 				}
 			}
-			return fmt.Errorf("cockpit-tray not found; install it first")
+		}
+		if fg {
+			cmd := exec.Command(bin)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			return cmd.Run()
+		}
+		cmd := exec.Command(bin)
+		logf, _ := os.OpenFile(filepath.Join(config.Dir(), "cockpit-tray.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+		cmd.Stdout = logf
+		cmd.Stderr = logf
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+		if err := cmd.Start(); err != nil {
+			return err
+		}
+		pid := cmd.Process.Pid
+		_ = cmd.Process.Release()
+		_ = os.WriteFile(trayPidPath, []byte(strconv.Itoa(pid)), 0o644)
+		fmt.Printf("cockpit-tray: started in background (pid %d)\n", pid)
+		return nil
+	}
+
+	trayStop := func() error {
+		b, err := os.ReadFile(trayPidPath)
+		if err != nil {
+			fmt.Println("cockpit-tray: not running")
+			return nil
+		}
+		pid, err := strconv.Atoi(string(b))
+		if err != nil {
+			os.Remove(trayPidPath)
+			fmt.Println("cockpit-tray: not running")
+			return nil
+		}
+		if p, err := os.FindProcess(pid); err == nil {
+			_ = p.Signal(syscall.SIGTERM)
+		}
+		os.Remove(trayPidPath)
+		fmt.Println("cockpit-tray: stopped")
+		return nil
+	}
+
+	trayStatus := func() {
+		b, err := os.ReadFile(trayPidPath)
+		if err != nil {
+			fmt.Println("cockpit-tray: stopped")
+			return
+		}
+		pid, _ := strconv.Atoi(string(b))
+		if p, err := os.FindProcess(pid); err == nil && p.Signal(syscall.Signal(0)) == nil {
+			fmt.Printf("cockpit-tray: running (pid %d)\n", pid)
+		} else {
+			fmt.Println("cockpit-tray: stopped")
+			os.Remove(trayPidPath)
+		}
+	}
+
+	trayCmd := &cobra.Command{
+		Use:   "tray",
+		Short: "Run the Ubuntu tray indicator.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fg, _ := cmd.Flags().GetBool("foreground")
+			return trayStart(fg)
 		},
 	}
+	trayCmd.Flags().Bool("foreground", false, "run in foreground")
+	trayCmd.AddCommand(&cobra.Command{
+		Use:   "stop",
+		Short: "Stop the background tray indicator.",
+		RunE: func(cmd *cobra.Command, args []string) error { return trayStop() },
+	})
+	trayCmd.AddCommand(&cobra.Command{
+		Use:   "status",
+		Short: "Show tray indicator status.",
+		RunE: func(cmd *cobra.Command, args []string) error { trayStatus(); return nil },
+	})
 	root.AddCommand(trayCmd)
 
 	uninstallCmd := &cobra.Command{
