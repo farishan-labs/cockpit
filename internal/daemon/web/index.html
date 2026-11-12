@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cockpit</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://unpkg.com/htmx.org@2.0.3"></script>
+<style>
+  :root { color-scheme: dark; }
+  body { font-family: system-ui, sans-serif; margin: 0; background: #0b0d10; color: #e6e6e6; }
+  header { padding: 1rem 1.5rem; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
+  main { padding: 1.5rem; max-width: 1100px; margin: 0 auto; }
+  .card { background: #14181d; border: 1px solid #222; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: .5rem; border-bottom: 1px solid #222; }
+  .live { color: #4ade80; }
+  .dead { color: #f87171; }
+  button { background: #2563eb; color: #fff; border: 0; padding: .4rem .8rem; border-radius: 6px; cursor: pointer; }
+  button.danger { background: #dc2626; }
+  select, input { background: #0b0d10; color: #e6e6e6; border: 1px solid #333; padding: .4rem; border-radius: 6px; }
+  .row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+  h2 { margin-top: 0; }
+</style>
+</head>
+<body>
+<header>
+  <div><strong>Cockpit</strong> — Faris Han Labs control plane</div>
+  <div id="status">connecting…</div>
+</header>
+<main>
+  <div class="card">
+    <h2>Launch agent</h2>
+    <div class="row">
+      <select id="agentSelect" name="agent">
+        <!-- filled by htmx? we'll load via JS -->
+      </select>
+      <input id="sessionName" placeholder="session name (optional)" />
+      <button onclick="launch()">Launch</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Sessions</h2>
+    <div id="sessions" hx-get="/api/sessions" hx-trigger="load, every 3s" hx-swap="innerHTML">
+      loading…
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Agents on PATH</h2>
+    <div id="agents" hx-get="/api/agents" hx-trigger="load" hx-swap="innerHTML">
+      loading…
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Doctor</h2>
+    <div id="doctor" hx-get="/api/doctor" hx-trigger="load" hx-swap="innerHTML">
+      loading…
+    </div>
+  </div>
+</main>
+
+<script>
+async function loadAgents() {
+  const r = await fetch('/api/agents');
+  const data = await r.json();
+  const sel = document.getElementById('agentSelect');
+  sel.innerHTML = '';
+  for (const a of data) {
+    const opt = document.createElement('option');
+    opt.value = a.name; opt.textContent = a.name;
+    sel.appendChild(opt);
+  }
+}
+loadAgents();
+
+function renderSessions(data) {
+  let html = '<table><thead><tr><th>Name</th><th>Agent</th><th>Status</th><th>Live</th><th></th></tr></thead><tbody>';
+  for (const s of data) {
+    html += `<tr>
+      <td>${s.name}</td>
+      <td>${s.agent||'-'}</td>
+      <td class="${s.live?'live':'dead'}">${s.status}</td>
+      <td>${s.live?'yes':'no'}</td>
+      <td>${s.live?`<button class="danger" onclick="kill('${s.name}')">Kill</button>`:''}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  return html;
+}
+
+// override htmx? We'll just poll manually for sessions to render nicely
+async function refreshSessions() {
+  const r = await fetch('/api/sessions');
+  const data = await r.json();
+  document.getElementById('sessions').innerHTML = renderSessions(data);
+}
+setInterval(refreshSessions, 3000);
+refreshSessions();
+
+async function refreshAgents() {
+  const r = await fetch('/api/agents');
+  const data = await r.json();
+  let html = '<ul>';
+  for (const a of data) html += `<li>${a.name} — ${a.path}</li>`;
+  html += '</ul>';
+  document.getElementById('agents').innerHTML = html;
+}
+refreshAgents();
+
+async function refreshDoctor() {
+  const r = await fetch('/api/doctor');
+  const data = await r.json();
+  document.getElementById('doctor').innerHTML = `<p>tmux: ${data.tmux?'OK':'MISSING'}</p><p>port: ${data.port}</p>`;
+}
+refreshDoctor();
+
+async function launch() {
+  const agent = document.getElementById('agentSelect').value;
+  const name = document.getElementById('sessionName').value;
+  const r = await fetch('/api/launch', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({agent, name})});
+  if (!r.ok) { alert(await r.text()); return; }
+  refreshSessions();
+}
+
+async function kill(name) {
+  await fetch('/api/kill', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name})});
+  refreshSessions();
+}
+
+// websocket for live updates
+const ws = new WebSocket('ws://' + location.host + '/ws');
+ws.onopen = () => document.getElementById('status').textContent = 'connected';
+ws.onmessage = () => { refreshSessions(); };
+ws.onclose = () => document.getElementById('status').textContent = 'disconnected';
+</script>
+</body>
+</html>

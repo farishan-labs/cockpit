@@ -3,6 +3,13 @@ package main
 import (
 	"fmt"
 
+	"github.com/charmbracelet/bubbletea"
+	"github.com/farishan-labs/cockpit/internal/agents"
+	"github.com/farishan-labs/cockpit/internal/config"
+	"github.com/farishan-labs/cockpit/internal/daemon"
+	"github.com/farishan-labs/cockpit/internal/storage"
+	"github.com/farishan-labs/cockpit/internal/terminal"
+	"github.com/farishan-labs/cockpit/internal/tui"
 	"github.com/farishan-labs/cockpit/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -25,10 +32,27 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 
 	serve := &cobra.Command{
 		Use:   "serve",
-		Short: "Run the cockpit core daemon (TUI + embedded web UI).",
+		Short: "Run the cockpit core daemon (web UI on localhost).",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Println("cockpit serve: not implemented yet (M1).")
-			return nil
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+			store, err := storage.Open(cfg.DBPath)
+			if err != nil {
+				return err
+			}
+			defer store.Close()
+			var backend terminal.Backend
+			switch cfg.TerminalBackend {
+			case "tmux":
+				backend = terminal.NewTmux()
+			default:
+				backend = terminal.NewTmux()
+			}
+			d := daemon.New(cfg, store, backend)
+			_ = agents.Detect()
+			return d.Run()
 		},
 	}
 	root.AddCommand(serve)
@@ -37,11 +61,37 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 		Use:   "doctor",
 		Short: "Check that required tools (tmux, agents) are available.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Println("cockpit doctor: not implemented yet (M1).")
+			cfg, _ := config.Load()
+			b := terminal.NewTmux()
+			fmt.Printf("config: %s\n", config.Path())
+			fmt.Printf("port: %d\n", cfg.Port)
+			fmt.Printf("tmux: %v\n", b.Available())
+			fmt.Printf("agents:\n")
+			for _, a := range agents.Detect() {
+				fmt.Printf("  - %s (%s)\n", a.Name, a.Path)
+			}
+			if store, err := storage.Open(cfg.DBPath); err == nil {
+				store.Close()
+				fmt.Printf("storage: ok (%s)\n", cfg.DBPath)
+			} else {
+				fmt.Printf("storage: %v\n", err)
+			}
 			return nil
 		},
 	}
 	root.AddCommand(doctor)
+
+	tuiCmd := &cobra.Command{
+		Use:   "tui",
+		Short: "Attach a TUI to a running cockpit daemon.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, _ := config.Load()
+			p := tea.NewProgram(tui.New(cfg.Port), tea.WithAltScreen())
+			_, err := p.Run()
+			return err
+		},
+	}
+	root.AddCommand(tuiCmd)
 
 	if err := root.Execute(); err != nil {
 		fmt.Println(err)
