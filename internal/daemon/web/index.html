@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Cockpit</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="https://unpkg.com/htmx.org@2.0.3"></script>
+<!-- htmx removed to avoid polling conflicts -->
 <style>
   :root { color-scheme: dark; }
   body { font-family: system-ui, sans-serif; margin: 0; background: #0b0d10; color: #e6e6e6; }
@@ -41,23 +41,17 @@
 
   <div class="card">
     <h2>Sessions</h2>
-    <div id="sessions" hx-get="/api/sessions" hx-trigger="load, every 3s" hx-swap="innerHTML">
-      loading…
-    </div>
+    <div id="sessions">loading…</div>
   </div>
 
   <div class="card">
     <h2>Agents on PATH</h2>
-    <div id="agents" hx-get="/api/agents" hx-trigger="load" hx-swap="innerHTML">
-      loading…
-    </div>
+    <div id="agents">loading…</div>
   </div>
 
   <div class="card">
     <h2>Doctor</h2>
-    <div id="doctor" hx-get="/api/doctor" hx-trigger="load" hx-swap="innerHTML">
-      loading…
-    </div>
+    <div id="doctor">loading…</div>
   </div>
 </main>
 
@@ -96,7 +90,7 @@ async function refreshSessions() {
   const data = await r.json();
   document.getElementById('sessions').innerHTML = renderSessions(data);
 }
-setInterval(refreshSessions, 3000);
+setInterval(refreshSessions, 5000);
 refreshSessions();
 
 async function refreshAgents() {
