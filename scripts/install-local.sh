@@ -25,6 +25,9 @@ echo "cockpit: installing to $BIN"
 install -m 0755 /tmp/cockpit-build "$BIN"
 rm -f /tmp/cockpit-build
 
+# git hooks (commit attribution)
+bash "${ROOT}/scripts/install-hooks.sh"
+
 # tray indicator (optional, Ubuntu)
 TRAY="${BIN_DIR}/cockpit-tray"
 if [ -f "${ROOT}/scripts/cockpit-tray.py" ]; then
