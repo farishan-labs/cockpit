@@ -99,6 +99,22 @@ Composition of a minimal core plus adapters and clients:
 - Co-pilots (single agents) and crews (agent teams) are both just sessions
   with a role/label.
 
+### Spec management (OpenSpec)
+- OpenSpec is the spec engine for cockpit: `openspec/` holds config, changes,
+  and capability specs; `.opencode/` and `.pi/` hold commands/skills.
+- `openspec validate` gates changes before merge. SPEC.md is the legacy
+  monolithic spec; new behavior is specified via OpenSpec changes.
+
+### Operator profile (user-md)
+- Cockpit is the runtime; `farishan-labs/user-md` is the static template +
+  validator (`usermd-check`) for the portable `USER.md` operator profile.
+- Integration spec: `docs/operator-profile-integration.md`. Core idea:
+  Operator Context is one artifact both consume; cockpit injects `USER.md`
+  into launched agents, validates it via `usermd-check` in `cockpit doctor`,
+  and (later) reads a shared `workflow.toml` manifest.
+- Preserve the OpenClaw split: `SOUL.md` (agent persona) never feeds
+  `USER.md` (operator profile).
+
 ### Tool registry
 
 - A manifest (TOML) of tools: name, binary, version, enabled, source.

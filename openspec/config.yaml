@@ -1,0 +1,22 @@
+schema: spec-driven
+
+# Project context (shown to AI when creating artifacts)
+context: |
+  Project: cockpit — Faris Han Labs human+AI control plane (Go, single static binary).
+  Tech stack: Go 1.26, cobra CLI, bubbletea TUI, modernc SQLite, gorilla/websocket,
+  BurntSushi/toml, embedded htmx web UI.
+  Conventions: P-001..P-024 from farishan-labs/principles; minimal core; reuse before build;
+  single static binary (P-005); no vendor lock-in (P-002).
+  Agent-facing: OpenCode + Pi. Specs managed by OpenSpec (this system).
+  Related repos: farishan-labs/user-md (operator profile), optional personal core repo,
+  farishan-labs/principles.
+  Operator profile integration spec: docs/operator-profile-integration.md.
+
+# Per-artifact rules
+rules:
+  proposal:
+    - Include a "Non-goals" section.
+    - Reference affected SPEC.md sections.
+  tasks:
+    - Break into chunks of max 2 hours.
+    - Each task maps to a verifiable cockpit command or test.
