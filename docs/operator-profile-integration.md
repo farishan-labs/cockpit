@@ -112,10 +112,14 @@ Land these in cockpit M2/M3, in order:
 4. **UI**: Operator panel (design F).
 5. Later, when M2 extension loader lands: extension B + tool sync C.
 
-## E-lite: shared manifest sketch
+## E-lite: shared manifest (now exists)
+
+Canonical location: `farishan/agent/workflow.toml`, installed at
+`~/.config/fhl/workflow.toml`. Cockpit and `usermd-check --workflow` read this
+file; do not duplicate it. Sketch retained for history:
 
 ```toml
-# ~/.config/fhl/workflow.toml  (or section in farishan/agent)
+# ~/.config/fhl/workflow.toml  (canonical: farishan/agent/workflow.toml)
 [operator]
 user_md_path   = "~/.config/cockpit/USER.md"
 machine_profile = "~/.config/cockpit/machine.toml"   # or profiles/machines
