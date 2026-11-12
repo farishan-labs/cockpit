@@ -120,3 +120,37 @@ echo written
 ```bash
 go get github.com/farishan-labs/cockpit
 ```
+
+## Quickstart
+
+```sh
+cockpit              # start daemon in background (opens web UI)
+cockpit status       # check daemon
+cockpit tui          # terminal UI
+cockpit open         # open herdr workspace (legacy launcher)
+cockpit doctor       # check tmux + agents
+cockpit stop         # stop daemon
+```
+
+Web UI: http://127.0.0.1:7777
+
+## Config
+
+`~/.config/cockpit/config.toml`:
+
+```toml
+port = 7777
+default_agent = "opencode"
+terminal_backend = "tmux"
+db_path = "~/.config/cockpit/cockpit.db"
+event_log_path = "~/.config/cockpit/events.jsonl"
+open_browser = true
+```
+
+## Tray (Ubuntu)
+
+```sh
+cockpit tray         # start tray indicator in background
+cockpit tray status
+cockpit tray stop
+```

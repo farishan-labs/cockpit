@@ -16,6 +16,7 @@ import (
 	"github.com/farishan-labs/cockpit/internal/herdr"
 	"github.com/farishan-labs/cockpit/internal/storage"
 	"github.com/farishan-labs/cockpit/internal/terminal"
+	"github.com/farishan-labs/cockpit/internal/toolreg"
 	"github.com/farishan-labs/cockpit/internal/tui"
 	"github.com/farishan-labs/cockpit/internal/version"
 	"github.com/spf13/cobra"
@@ -382,6 +383,84 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 		},
 	}
 	root.AddCommand(installCmd)
+
+	toolCmd := &cobra.Command{Use: "tool", Short: "Manage registered tools."}
+	toolCmd.AddCommand(&cobra.Command{
+		Use: "list", Short: "List registered tools.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			m, err := toolreg.Load()
+			if err != nil {
+				return err
+			}
+			for _, t := range m.Tools {
+				state := "enabled"
+				if !t.Enabled {
+					state = "disabled"
+				}
+				fmt.Printf("%-16s %-16s %s  %s\n", t.Name, t.Binary, state, t.Description)
+			}
+			if len(m.Tools) == 0 {
+				fmt.Println("no tools registered")
+			}
+			return nil
+		},
+	})
+	toolCmd.AddCommand(&cobra.Command{
+		Use: "add <name> <binary> [description]", Short: "Register a tool.",
+		Args: cobra.MinimumNArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			desc := ""
+			if len(args) > 2 {
+				desc = args[2]
+			}
+			if err := toolreg.Add(args[0], args[1], desc); err != nil {
+				return err
+			}
+			fmt.Printf("added tool %s\n", args[0])
+			return nil
+		},
+	})
+	toolCmd.AddCommand(&cobra.Command{
+		Use: "remove <name>", Short: "Remove a tool.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := toolreg.Remove(args[0]); err != nil {
+				return err
+			}
+			fmt.Printf("removed tool %s\n", args[0])
+			return nil
+		},
+	})
+	toolCmd.AddCommand(&cobra.Command{
+		Use: "enable <name>", Short: "Enable a tool.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := toolreg.SetEnabled(args[0], true); err != nil {
+				return err
+			}
+			fmt.Printf("enabled %s\n", args[0])
+			return nil
+		},
+	})
+	toolCmd.AddCommand(&cobra.Command{
+		Use: "disable <name>", Short: "Disable a tool.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := toolreg.SetEnabled(args[0], false); err != nil {
+				return err
+			}
+			fmt.Printf("disabled %s\n", args[0])
+			return nil
+		},
+	})
+	toolCmd.AddCommand(&cobra.Command{
+		Use: "run <name> [args...]", Short: "Run a registered tool.",
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return toolreg.Run(args[0], args[1:])
+		},
+	})
+	root.AddCommand(toolCmd)
 
 	if err := root.Execute(); err != nil {
 		fmt.Println(err)
