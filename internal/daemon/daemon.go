@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -141,6 +142,8 @@ func (d *Daemon) routes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/launch", d.handleLaunch)
 	mux.HandleFunc("/api/kill", d.handleKill)
 	mux.HandleFunc("/api/doctor", d.handleDoctor)
+	mux.HandleFunc("/operator", d.handleOperator)
+	mux.HandleFunc("/api/operator", d.handleOperator)
 	mux.HandleFunc("/ws", d.handleWS)
 }
 
@@ -210,15 +213,27 @@ func (d *Daemon) handleLaunch(w http.ResponseWriter, r *http.Request) {
 	if req.Name == "" {
 		req.Name = req.Agent + "-" + uuid.New().String()[:8]
 	}
-	// launch tmux session running agent
-	cmd := req.Agent
+	// ensure USER.md symlink in session cwd
+	cwd, _ := os.Getwd()
+	if cwd != "" {
+		link := filepath.Join(cwd, "USER.md")
+		if _, err := os.Lstat(link); err != nil {
+			_ = os.Symlink(d.Cfg.UserMDPath, link)
+			_ = storage.AppendJSONL(d.Cfg.EventLogPath, map[string]any{
+				"type": "user_md_injected", "session": req.Name, "path": d.Cfg.UserMDPath, "ts": time.Now().UTC(),
+			})
+		}
+	}
+	// launch tmux session running agent with USER_MD_PATH exported
+	cmd := fmt.Sprintf("sh -c 'cd %s 2>/dev/null; export USER_MD_PATH=%s; exec %s'",
+		shellQuote(cwd), shellQuote(d.Cfg.UserMDPath), req.Agent)
 	if err := d.Backend.CreateSession(req.Name, cmd); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	id := uuid.New().String()
 	_ = d.Store.CreateSession(id, req.Name, req.Agent)
-	_ = d.Store.LogEvent(id, "launch", map[string]any{"agent": req.Agent, "session": req.Name})
+	_ = d.Store.LogEvent(id, "launch", map[string]any{"agent": req.Agent, "session": req.Name, "user_md_path": d.Cfg.UserMDPath})
 	_ = storage.AppendJSONL(d.Cfg.EventLogPath, map[string]any{
 		"type": "launch", "session": req.Name, "agent": req.Agent, "ts": time.Now().UTC(),
 	})
@@ -258,6 +273,33 @@ func (d *Daemon) handleDoctor(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
+func (d *Daemon) handleOperator(w http.ResponseWriter, r *http.Request) {
+	profile, _ := os.ReadFile(d.Cfg.UserMDPath)
+	resp := map[string]any{
+		"path":    d.Cfg.UserMDPath,
+		"profile": string(profile),
+	}
+	if fi, err := os.Stat(d.Cfg.UserMDPath); err == nil {
+		resp["last_audit"] = fi.ModTime().UTC().Format(time.RFC3339)
+	}
+	// validation via usermd-check --json
+	if bin, err := exec.LookPath("usermd-check"); err == nil {
+		cmd := exec.Command(bin, "--json", d.Cfg.UserMDPath)
+		out, _ := cmd.Output()
+		var v map[string]any
+		if json.Unmarshal(out, &v) == nil {
+			resp["validation"] = v
+		} else {
+			resp["validation"] = nil
+		}
+	} else {
+		resp["validation"] = nil
+		resp["validation_skipped"] = true
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
 func (d *Daemon) handleWS(w http.ResponseWriter, r *http.Request) {
 	conn, err := d.upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -287,4 +329,9 @@ func openBrowser(url string) {
 			return
 		}
 	}
+}
+
+
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }

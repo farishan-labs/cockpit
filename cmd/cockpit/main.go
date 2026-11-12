@@ -179,6 +179,10 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 			} else {
 				fmt.Println("daemon: stopped")
 			}
+			fmt.Printf("operator profile: %s\n", cfg.UserMDPath)
+			if err := runUserMDCheck(cfg.UserMDPath); err != nil {
+				return err
+			}
 			return nil
 		},
 	}
@@ -472,4 +476,21 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+// runUserMDCheck runs the optional usermd-check binary on path. It warns and
+// returns nil when the binary is absent.
+func runUserMDCheck(path string) error {
+	bin, err := exec.LookPath("usermd-check")
+	if err != nil {
+		fmt.Println("operator profile: usermd-check not installed (warning: skipping validation)")
+		return nil
+	}
+	cmd := exec.Command(bin, path)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("operator profile check failed: %w", err)
+	}
+	return nil
 }

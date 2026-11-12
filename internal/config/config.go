@@ -16,6 +16,7 @@ type Config struct {
 	DBPath          string `toml:"db_path"`
 	EventLogPath    string `toml:"event_log_path"`
 	OpenBrowser     bool   `toml:"open_browser"`
+	UserMDPath      string `toml:"user_md_path"`
 }
 
 // Default returns sensible defaults.
@@ -29,6 +30,7 @@ func Default() Config {
 		DBPath:          filepath.Join(base, "cockpit.db"),
 		EventLogPath:    filepath.Join(base, "events.jsonl"),
 		OpenBrowser:     true,
+		UserMDPath:      filepath.Join(base, "USER.md"),
 	}
 }
 
@@ -77,6 +79,13 @@ func Load() (Config, error) {
 	}
 	if cfg.EventLogPath == "" {
 		cfg.EventLogPath = d.EventLogPath
+	}
+	if cfg.UserMDPath == "" {
+		cfg.UserMDPath = d.UserMDPath
+	}
+	// create parent dir
+	if err := os.MkdirAll(filepath.Dir(cfg.UserMDPath), 0o755); err != nil {
+		return cfg, err
 	}
 	return cfg, nil
 }

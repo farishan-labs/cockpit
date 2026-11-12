@@ -53,6 +53,11 @@
     <h2>Doctor</h2>
     <div id="doctor">loading…</div>
   </div>
+
+  <div class="card">
+    <h2>Operator</h2>
+    <div id="operator">loading…</div>
+  </div>
 </main>
 
 <script>
@@ -107,8 +112,30 @@ async function refreshDoctor() {
   const r = await fetch('/api/doctor');
   const data = await r.json();
   document.getElementById('doctor').innerHTML = `<p>tmux: ${data.tmux?'OK':'MISSING'}</p><p>port: ${data.port}</p>`;
+  refreshOperator();
 }
 refreshDoctor();
+
+async function refreshOperator() {
+  const r = await fetch('/operator');
+  const data = await r.json();
+  const v = data.validation;
+  let status = 'n/a';
+  let cap = '';
+  if (data.validation_skipped) status = 'skipped (usermd-check missing)';
+  else if (v) {
+    const s = v.summary || {};
+    status = (s.errors > 0) ? 'FAIL' : 'OK';
+    cap = v.char_count + ' / ' + v.budget + ' chars';
+  }
+  const esc = (str) => (str||'').replace(/</g,'&lt;');
+  document.getElementById('operator').innerHTML =
+    `<p>path: ${esc(data.path)}</p>` +
+    `<p>status: ${status} ${cap}</p>` +
+    `<p>last audit: ${data.last_audit||'unknown'}</p>` +
+    `<pre>${esc(data.profile)}</pre>`;
+}
+refreshOperator();
 
 async function launch() {
   const agent = document.getElementById('agentSelect').value;
