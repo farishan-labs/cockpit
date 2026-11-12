@@ -90,8 +90,8 @@ async function refreshSessions() {
   const data = await r.json();
   document.getElementById('sessions').innerHTML = renderSessions(data);
 }
-setInterval(refreshSessions, 5000);
 refreshSessions();
+// refresh on websocket updates (server pushes on change)
 
 async function refreshAgents() {
   const r = await fetch('/api/agents');

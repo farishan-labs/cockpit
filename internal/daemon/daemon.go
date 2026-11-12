@@ -72,6 +72,9 @@ func (d *Daemon) Run() error {
 	// websocket broadcaster
 	go d.runBroadcaster()
 
+	// watch terminal sessions for changes and push updates
+	go d.watchSessions()
+
 	// open browser
 	if d.Cfg.OpenBrowser {
 		go func() {
@@ -110,6 +113,21 @@ func (d *Daemon) runBroadcaster() {
 func (d *Daemon) notify() {
 	b, _ := json.Marshal(map[string]any{"type": "update", "ts": time.Now()})
 	d.broadcast <- b
+}
+
+func (d *Daemon) watchSessions() {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	var last string
+	for range ticker.C {
+		ts, _ := d.Backend.ListSessions()
+		b, _ := json.Marshal(ts)
+		cur := string(b)
+		if cur != last {
+			last = cur
+			d.notify()
+		}
+	}
 }
 
 func (d *Daemon) routes(mux *http.ServeMux) {
