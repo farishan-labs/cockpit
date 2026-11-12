@@ -17,6 +17,7 @@ import (
 	"github.com/farishan-labs/cockpit/internal/storage"
 	"github.com/farishan-labs/cockpit/internal/terminal"
 	"github.com/farishan-labs/cockpit/internal/tui"
+	"github.com/farishan-labs/cockpit/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -129,6 +130,8 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 			return serveBackground()
 		},
 	}
+	root.Version = version.Version
+	root.SetVersionTemplate("cockpit {{.Version}} (commit " + version.Commit + ", built " + version.Date + ")\n")
 
 	root.PersistentFlags().BoolVar(&foreground, "foreground", false, "run in foreground (do not daemonize)")
 
@@ -197,6 +200,15 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 		},
 	}
 	root.AddCommand(status)
+
+	versionCmd := &cobra.Command{
+		Use:   "version",
+		Short: "Print version information.",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("cockpit %s (commit %s, built %s)\n", version.Version, version.Commit, version.Date)
+		},
+	}
+	root.AddCommand(versionCmd)
 
 	tuiCmd := &cobra.Command{
 		Use:   "tui",
