@@ -50,6 +50,11 @@
   </div>
 
   <div class="card">
+    <h2>Adapters (M3)</h2>
+    <div id="adapters">loading…</div>
+  </div>
+
+  <div class="card">
     <h2>Doctor</h2>
     <div id="doctor">loading…</div>
   </div>
@@ -107,6 +112,19 @@ async function refreshAgents() {
   document.getElementById('agents').innerHTML = html;
 }
 refreshAgents();
+
+async function refreshAdapters() {
+  const r = await fetch('/api/adapters');
+  const data = await r.json();
+  let html = '<table><thead><tr><th>Name</th><th>Available</th><th>Status</th></tr></thead><tbody>';
+  for (const a of data) {
+    html += `<tr><td>${a.name}</td><td>${a.available?'yes':'no'}</td><td><pre>${JSON.stringify(a.status||{})}</pre></td></tr>`;
+    if (a.error) html += `<tr><td colspan="3" class="dead">${a.error}</td></tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById('adapters').innerHTML = html;
+}
+refreshAdapters();
 
 async function refreshDoctor() {
   const r = await fetch('/api/doctor');

@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/farishan-labs/cockpit/internal/adapters"
 	"github.com/farishan-labs/cockpit/internal/agents"
 	"github.com/farishan-labs/cockpit/internal/config"
 	"github.com/farishan-labs/cockpit/internal/storage"
@@ -28,10 +29,11 @@ var webFS embed.FS
 
 // Daemon is the cockpit core.
 type Daemon struct {
-	Cfg       config.Config
-	Store     *storage.Store
-	Backend   terminal.Backend
-	agents    []agents.Agent
+	Cfg        config.Config
+	Store      *storage.Store
+	Backend    terminal.Backend
+	adapters   []adapters.Adapter
+	agents     []agents.Agent
 	upgrader  websocket.Upgrader
 	clients   map[*websocket.Conn]bool
 	broadcast chan []byte
@@ -43,6 +45,7 @@ func New(cfg config.Config, store *storage.Store, backend terminal.Backend) *Dae
 		Cfg:       cfg,
 		Store:     store,
 		Backend:   backend,
+		adapters:  adapters.All(),
 		agents:    agents.Detect(),
 		upgrader:  websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
 		clients:   make(map[*websocket.Conn]bool),
@@ -142,6 +145,7 @@ func (d *Daemon) routes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/launch", d.handleLaunch)
 	mux.HandleFunc("/api/kill", d.handleKill)
 	mux.HandleFunc("/api/doctor", d.handleDoctor)
+	mux.HandleFunc("/api/adapters", d.handleAdapters)
 	mux.HandleFunc("/operator", d.handleOperator)
 	mux.HandleFunc("/api/operator", d.handleOperator)
 	mux.HandleFunc("/ws", d.handleWS)
@@ -298,6 +302,27 @@ func (d *Daemon) handleOperator(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+func (d *Daemon) handleAdapters(w http.ResponseWriter, r *http.Request) {
+	type row struct {
+		Name   string         `json:"name"`
+		Avail  bool           `json:"available"`
+		Status map[string]any `json:"status"`
+		Error  string         `json:"error,omitempty"`
+	}
+	var rows []row
+	for _, a := range d.adapters {
+		st, err := a.Status()
+		avail := a.Available()
+		rr := row{Name: a.Name(), Avail: avail, Status: st}
+		if err != nil {
+			rr.Error = err.Error()
+		}
+		rows = append(rows, rr)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(rows)
 }
 
 func (d *Daemon) handleWS(w http.ResponseWriter, r *http.Request) {
