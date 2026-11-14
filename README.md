@@ -13,8 +13,11 @@ never reinvents an exact wheel. Zero vendor lock-in.
 
 ## Status
 
-M1 complete. M2 tool registry scaffold (manifest + enable/disable/run) done.
-Remaining: M2 extension loader/hooks, M3 adapters (herdr/opencode/pi), M4 polish.
+**Incubating / experimental.** M1 (daemon + web + TUI) and M2 (tool registry)
+shipped; M3 adapter layer started (herdr/opencode/pi). Not currently on the
+critical path — `herdr-app` remains the daily driver. Development paused;
+resume only on a concrete gap herdr can't cover (multi-machine aggregation,
+cross-tool agent discovery, second operator).
 
 ## Quickstart
 
