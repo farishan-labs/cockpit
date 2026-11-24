@@ -6,8 +6,8 @@ HOOK="$ROOT/.git/hooks/prepare-commit-msg"
 cat > "$HOOK" <<'EOF'
 #!/bin/sh
 MSG_FILE="$1"
-if ! grep -q "Co-authored-by: Faris Han Labs CEO" "$MSG_FILE"; then
-  printf "\nCo-authored-by: Faris Han Labs CEO <farishan-labs-ceo@users.noreply.github.com>\n" >> "$MSG_FILE"
+if ! grep -q "Co-authored-by: FHL Director" "$MSG_FILE"; then
+  printf "\nCo-authored-by: FHL Director <fhl-director@users.noreply.github.com>\n" >> "$MSG_FILE"
 fi
 EOF
 chmod +x "$HOOK"
