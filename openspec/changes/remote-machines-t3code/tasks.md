@@ -2,7 +2,7 @@
 
 - [ ] Add `machines` config schema + DB table + migration
 - [ ] Implement `internal/machines` package (registry CRUD, SSH exec helper)
-- [ ] Add Tailscale adapter implementing `adapters.Adapter`
+- [ ] (moved to `machines`: tunnel backends + `machines check`) Consume `machines check --json` for reachability instead of a cockpit Tailscale adapter
 - [ ] Add T3 Code adapter (local + remote over SSH)
 - [ ] Add `/api/machines`, `/api/machines/check`, `/api/machines/pair` routes
 - [ ] Add CLI subcommands `machine`, `t3 pair`

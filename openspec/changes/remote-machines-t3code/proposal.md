@@ -39,7 +39,8 @@ keeps the multi-machine workflow (Mac ↔ oscar) visible and auditable.
   for a machine (local or remote over SSH).
 
 ### Modified Capabilities
-- `adapters`: add Tailscale and T3 Code adapters to the default set.
+- `adapters`: add `machines` (inventory + reachability) and T3 Code adapters
+  to the default set. No Tailscale adapter in cockpit.
 - `doctor`: include machine reachability + T3 service in `cockpit doctor`
   output (best-effort, skip if no machines configured).
 
@@ -48,8 +49,10 @@ keeps the multi-machine workflow (Mac ↔ oscar) visible and auditable.
 - Affected: `internal/config`, `internal/storage`, `internal/adapters`,
   `internal/daemon` (routes + WS notify), `cmd/cockpit` (new subcommands),
   embedded web UI, `internal/terminal` (SSH exec helper), `SPEC.md`.
-- New external (soft) deps: `tailscale` and `t3`/`ssh` on PATH; adapters skip
-  with a warning if absent (mirrors `usermd-check` pattern).
+- New external (soft) deps: `machines` (provides reachability via its own
+  tunnel backends, incl. Tailscale/SSH/custom), `t3`/`ssh` on PATH; adapters
+  skip with a warning if absent (mirrors `usermd-check` pattern). Cockpit
+  itself does not call `tailscale` directly.
 - Non-goals: no reimplementing Tailscale, SSH, or T3 Code; cockpit only
   aggregates and drives them. No cloud hosting; multi-machine stays SSH/tailnet.
 - Security: pairing tokens and SSH targets stored with the same sensitivity as
