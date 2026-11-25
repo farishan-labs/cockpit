@@ -203,7 +203,8 @@ async function kill(name) {
 }
 
 // websocket for live updates
-const ws = new WebSocket('ws://' + location.host + '/ws');
+const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+const ws = new WebSocket(wsProto + '//' + location.host + '/ws');
 ws.onopen = () => document.getElementById('status').textContent = 'connected';
 ws.onmessage = () => { refreshSessions(); };
 ws.onclose = () => document.getElementById('status').textContent = 'disconnected';
