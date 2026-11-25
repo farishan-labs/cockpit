@@ -105,25 +105,36 @@ func (Machines) Status() (map[string]any, error) {
 	}
 	var data struct {
 		Machines []struct {
-			ID   string `json:"id"`
-			Name string `json:"name"`
-			OS   string `json:"os"`
-			Role string `json:"role"`
-			Host string `json:"host"`
+			ID   string   `json:"id"`
+			Name string   `json:"name"`
+			OS   string   `json:"os"`
+			Role string   `json:"role"`
+			Host string   `json:"host"`
+			Tags []string `json:"tags"`
 		} `json:"machines"`
 		DefaultMachineID string `json:"defaultMachineId"`
 	}
 	if err := json.Unmarshal(out, &data); err != nil {
 		return map[string]any{"available": true, "raw": string(out)}, nil
 	}
+	machines := make([]map[string]any, 0, len(data.Machines))
 	ids := make([]string, 0, len(data.Machines))
 	for _, m := range data.Machines {
 		ids = append(ids, m.ID)
+		machines = append(machines, map[string]any{
+			"id":   m.ID,
+			"name": m.Name,
+			"os":   m.OS,
+			"role": m.Role,
+			"host": m.Host,
+			"tags": m.Tags,
+		})
 	}
 	return map[string]any{
 		"available":       true,
 		"count":           len(data.Machines),
-		"machines":        ids,
+		"machines":        machines,
+		"machine_ids":     ids,
 		"default_machine": data.DefaultMachineID,
 	}, nil
 }
