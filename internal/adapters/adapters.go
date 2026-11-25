@@ -85,7 +85,50 @@ func (Pi) Status() (map[string]any, error) {
 	}, nil
 }
 
+// Machines aggregates the machines inventory CLI (machine list + preferences).
+type Machines struct{}
+
+func (Machines) Name() string { return "machines" }
+
+func (Machines) Available() bool {
+	_, err := exec.LookPath("machines")
+	return err == nil
+}
+
+func (Machines) Status() (map[string]any, error) {
+	if _, err := exec.LookPath("machines"); err != nil {
+		return map[string]any{"available": false}, nil
+	}
+	out, err := exec.Command("machines", "list", "--json").Output()
+	if err != nil {
+		return nil, fmt.Errorf("machines list --json: %w", err)
+	}
+	var data struct {
+		Machines []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+			OS   string `json:"os"`
+			Role string `json:"role"`
+			Host string `json:"host"`
+		} `json:"machines"`
+		DefaultMachineID string `json:"defaultMachineId"`
+	}
+	if err := json.Unmarshal(out, &data); err != nil {
+		return map[string]any{"available": true, "raw": string(out)}, nil
+	}
+	ids := make([]string, 0, len(data.Machines))
+	for _, m := range data.Machines {
+		ids = append(ids, m.ID)
+	}
+	return map[string]any{
+		"available":       true,
+		"count":           len(data.Machines),
+		"machines":        ids,
+		"default_machine": data.DefaultMachineID,
+	}, nil
+}
+
 // All returns the default adapter set for M3.
 func All() []Adapter {
-	return []Adapter{Herdr{}, Opencode{}, Pi{}}
+	return []Adapter{Herdr{}, Opencode{}, Pi{}, Machines{}}
 }

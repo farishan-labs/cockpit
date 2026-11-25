@@ -17,9 +17,9 @@ import (
 	"github.com/farishan-labs/cockpit/internal/storage"
 	"github.com/farishan-labs/cockpit/internal/terminal"
 	"github.com/farishan-labs/cockpit/internal/toolreg"
-	"github.com/farishan-labs/cockpit/internal/workflow"
 	"github.com/farishan-labs/cockpit/internal/tui"
 	"github.com/farishan-labs/cockpit/internal/version"
+	"github.com/farishan-labs/cockpit/internal/workflow"
 	"github.com/spf13/cobra"
 )
 
@@ -167,6 +167,12 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 			fmt.Printf("agents:\n")
 			for _, a := range agents.Detect() {
 				fmt.Printf("  - %s (%s)\n", a.Name, a.Path)
+			}
+			if _, err := exec.LookPath("machines"); err == nil {
+				out, _ := exec.Command("machines", "list", "--json").Output()
+				fmt.Printf("machines: available (%d bytes)\n", len(out))
+			} else {
+				fmt.Printf("machines: not found\n")
 			}
 			if store, err := storage.Open(cfg.DBPath); err == nil {
 				store.Close()
@@ -341,12 +347,12 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 	trayCmd.AddCommand(&cobra.Command{
 		Use:   "stop",
 		Short: "Stop the background tray indicator.",
-		RunE: func(cmd *cobra.Command, args []string) error { return trayStop() },
+		RunE:  func(cmd *cobra.Command, args []string) error { return trayStop() },
 	})
 	trayCmd.AddCommand(&cobra.Command{
 		Use:   "status",
 		Short: "Show tray indicator status.",
-		RunE: func(cmd *cobra.Command, args []string) error { trayStatus(); return nil },
+		RunE:  func(cmd *cobra.Command, args []string) error { trayStatus(); return nil },
 	})
 	root.AddCommand(trayCmd)
 
