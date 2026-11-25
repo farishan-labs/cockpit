@@ -212,49 +212,37 @@ func (m *Manager) Remove(name string) error {
 }
 
 // ProxyHandler returns an http.Handler reverse-proxying to a remote extension.
-// Paths under /ext/<name>/api/* go to api_base; everything else to web base.
+// A single proxy to the web base; prefix /ext/<name> is stripped so the
+// extension sees its normal root paths (/api/..., /style.css, ...).
 func (m *Manager) ProxyHandler(name string) http.Handler {
-	var apiBase, webBase string
+	var webBase string
 	for _, d := range m.discovered {
 		if d.Manifest.Name == name {
-			apiBase = d.Manifest.APIBase
 			webBase = d.Manifest.Web
+			if webBase == "" {
+				webBase = d.Manifest.APIBase
+			}
 		}
 	}
-	if apiBase == "" {
-		apiBase = webBase
-	}
-	webTarget, _ := url.Parse(webBase)
-	apiTarget, _ := url.Parse(apiBase)
-	if webTarget == nil || webTarget.Scheme == "" {
+	target, _ := url.Parse(webBase)
+	if target == nil || target.Scheme == "" {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "extension not available", http.StatusBadGateway)
 		})
 	}
-	webProxy := httputil.NewSingleHostReverseProxy(webTarget)
-	apiProxy := httputil.NewSingleHostReverseProxy(apiTarget)
-	// director fixups
-	fix := func(proxy *httputil.ReverseProxy, target *url.URL, strip string) {
-		orig := proxy.Director
-		proxy.Director = func(req *http.Request) {
-			orig(req)
-			req.URL.Path = strings.TrimPrefix(req.URL.Path, strip)
-			if req.URL.Path == "" {
-				req.URL.Path = "/"
-			}
-			req.URL.RawPath = ""
-			req.Host = target.Host
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	orig := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		orig(req)
+		prefix := "/ext/" + name
+		req.URL.Path = strings.TrimPrefix(req.URL.Path, prefix)
+		if req.URL.Path == "" {
+			req.URL.Path = "/"
 		}
+		req.URL.RawPath = ""
+		req.Host = target.Host
 	}
-	fix(webProxy, webTarget, "/ext/"+name)
-	fix(apiProxy, apiTarget, "/ext/"+name+"/api")
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/ext/"+name+"/api") {
-			apiProxy.ServeHTTP(w, r)
-			return
-		}
-		webProxy.ServeHTTP(w, r)
-	})
+	return proxy
 }
 
 // Sync calls POST /cockpit/sync on a remote extension (best-effort).
