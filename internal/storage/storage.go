@@ -59,6 +59,15 @@ func (s *Store) migrate() error {
 			payload TEXT,
 			created_at TEXT NOT NULL
 		);`,
+		`CREATE TABLE IF NOT EXISTS extensions (
+			name TEXT PRIMARY KEY,
+			kind TEXT NOT NULL,
+			version TEXT NOT NULL DEFAULT '',
+			enabled INTEGER NOT NULL DEFAULT 1,
+			available INTEGER NOT NULL DEFAULT 0,
+			last_sync TEXT,
+			last_seen TEXT
+		);`,
 	}
 	for _, st := range stmts {
 		if _, err := s.db.Exec(st); err != nil {
@@ -179,4 +188,115 @@ func AppendJSONL(path string, v any) error {
 	b = append(b, '\n')
 	_, err = f.Write(b)
 	return err
+}
+
+// Extension record.
+type Extension struct {
+	Name     string    `json:"name"`
+	Kind     string    `json:"kind"`
+	Version  string    `json:"version"`
+	Enabled  bool      `json:"enabled"`
+	Available bool     `json:"available"`
+	LastSync *time.Time `json:"last_sync,omitempty"`
+	LastSeen *time.Time `json:"last_seen,omitempty"`
+}
+
+// UpsertExtension inserts or updates an extension row.
+func (s *Store) UpsertExtension(name, kind, version string, enabled bool) error {
+	_, err := s.db.Exec(`INSERT INTO extensions (name,kind,version,enabled,available) VALUES (?,?,?,?,0)
+		ON CONFLICT(name) DO UPDATE SET kind=excluded.kind, version=excluded.version, enabled=excluded.enabled`,
+		name, kind, version, boolToInt(enabled))
+	return err
+}
+
+// SetExtensionEnabled toggles enabled.
+func (s *Store) SetExtensionEnabled(name string, enabled bool) error {
+	_, err := s.db.Exec(`UPDATE extensions SET enabled=? WHERE name=?`, boolToInt(enabled), name)
+	return err
+}
+
+// SetExtensionAvailable updates availability + last_seen.
+func (s *Store) SetExtensionAvailable(name string, available bool) error {
+	t := now()
+	_, err := s.db.Exec(`UPDATE extensions SET available=?, last_seen=? WHERE name=?`, boolToInt(available), t, name)
+	return err
+}
+
+// SetExtensionLastSync updates last_sync.
+func (s *Store) SetExtensionLastSync(name string) error {
+	t := now()
+	_, err := s.db.Exec(`UPDATE extensions SET last_sync=? WHERE name=?`, t, name)
+	return err
+}
+
+// ListExtensions returns all extension rows.
+func (s *Store) ListExtensions() ([]Extension, error) {
+	rows, err := s.db.Query(`SELECT name,kind,version,enabled,available,last_sync,last_seen FROM extensions ORDER BY name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Extension
+	for rows.Next() {
+		var e Extension
+		var en, av int
+		var ls, lseen sql.NullString
+		if err := rows.Scan(&e.Name, &e.Kind, &e.Version, &en, &av, &ls, &lseen); err != nil {
+			return nil, err
+		}
+		e.Enabled = en != 0
+		e.Available = av != 0
+		if ls.Valid {
+			t, _ := time.Parse(time.RFC3339, ls.String)
+			e.LastSync = &t
+		}
+		if lseen.Valid {
+			t, _ := time.Parse(time.RFC3339, lseen.String)
+			e.LastSeen = &t
+		}
+		out = append(out, e)
+	}
+	return out, nil
+}
+
+// GetExtension returns a single extension row.
+func (s *Store) GetExtension(name string) (Extension, bool, error) {
+	rows, err := s.db.Query(`SELECT name,kind,version,enabled,available,last_sync,last_seen FROM extensions WHERE name=?`, name)
+	if err != nil {
+		return Extension{}, false, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return Extension{}, false, nil
+	}
+	var e Extension
+	var en, av int
+	var ls, lseen sql.NullString
+	if err := rows.Scan(&e.Name, &e.Kind, &e.Version, &en, &av, &ls, &lseen); err != nil {
+		return Extension{}, false, err
+	}
+	e.Enabled = en != 0
+	e.Available = av != 0
+	if ls.Valid {
+		t, _ := time.Parse(time.RFC3339, ls.String)
+		e.LastSync = &t
+	}
+	if lseen.Valid {
+		t, _ := time.Parse(time.RFC3339, lseen.String)
+		e.LastSeen = &t
+	}
+	return e, true, nil
+}
+
+// RemoveExtension deletes an extension row.
+func (s *Store) RemoveExtension(name string) error {
+	_, err := s.db.Exec(`DELETE FROM extensions WHERE name=?`, name)
+	return err
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }

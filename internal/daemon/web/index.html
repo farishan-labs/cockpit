@@ -55,6 +55,13 @@
   </div>
 
   <div class="card">
+    <h2>Extensions</h2>
+    <div id="extensions">loading…</div>
+    <div id="extTabs" style="margin-top:1rem"></div>
+    <div id="extFrameWrap" style="margin-top:1rem"></div>
+  </div>
+
+  <div class="card">
     <h2>Doctor</h2>
     <div id="doctor">loading…</div>
   </div>
@@ -125,6 +132,33 @@ async function refreshAdapters() {
   document.getElementById('adapters').innerHTML = html;
 }
 refreshAdapters();
+
+async function refreshExtensions() {
+  const r = await fetch('/api/extensions');
+  const data = await r.json();
+  let html = '<table><thead><tr><th>Name</th><th>Kind</th><th>Available</th><th>Tabs</th></tr></thead><tbody>';
+  for (const e of data) {
+    html += `<tr><td>${e.name}</td><td>${e.kind}</td><td>${e.available?'yes':'no'}</td><td>${(e.tabs||[]).map(t=>t.title).join(', ')}</td></tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById('extensions').innerHTML = html || 'none';
+  // render tab buttons + iframe
+  const tabsDiv = document.getElementById('extTabs');
+  const wrap = document.getElementById('extFrameWrap');
+  tabsDiv.innerHTML = '';
+  wrap.innerHTML = '';
+  for (const e of data) {
+    if (!e.enabled || !e.available) continue;
+    for (const t of (e.tabs||[])) {
+      const btn = document.createElement('button');
+      btn.textContent = t.title;
+      btn.style.marginRight = '0.5rem';
+      btn.onclick = () => { wrap.innerHTML = `<iframe src="${t.url}" style="width:100%;height:60vh;border:1px solid #333;border-radius:8px"></iframe>`; };
+      tabsDiv.appendChild(btn);
+    }
+  }
+}
+refreshExtensions();
 
 async function refreshDoctor() {
   const r = await fetch('/api/doctor');

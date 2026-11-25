@@ -123,7 +123,12 @@ Composition of a minimal core plus adapters and clients:
 
 ### Extensions
 
-- Directory of extensions: each has a manifest + executable + hook points.
+- Directory of extensions: each has a `cockpit-extension.json` manifest +
+  (native Go package or remote HTTP service).
+- Two kinds: **native** (in-process Go) and **remote** (external service
+  proxied by the daemon under `/ext/<name>/`).
+- Remote extensions implement `/cockpit/health` + `/cockpit/manifest` (+ optional
+  `/cockpit/sync`); tabs are mounted dynamically in the web UI.
 - Hook points mirror Pi's lifecycle (pre/post tool, session events, ...).
 - The agent can author extensions (Pi's "software that builds itself").
 

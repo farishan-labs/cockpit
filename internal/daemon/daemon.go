@@ -18,6 +18,7 @@ import (
 	"github.com/farishan-labs/cockpit/internal/adapters"
 	"github.com/farishan-labs/cockpit/internal/agents"
 	"github.com/farishan-labs/cockpit/internal/config"
+	"github.com/farishan-labs/cockpit/internal/extensions"
 	"github.com/farishan-labs/cockpit/internal/storage"
 	"github.com/farishan-labs/cockpit/internal/terminal"
 	"github.com/google/uuid"
@@ -29,31 +30,37 @@ var webFS embed.FS
 
 // Daemon is the cockpit core.
 type Daemon struct {
-	Cfg        config.Config
-	Store      *storage.Store
-	Backend    terminal.Backend
-	adapters   []adapters.Adapter
-	agents     []agents.Agent
-	upgrader  websocket.Upgrader
-	clients   map[*websocket.Conn]bool
-	broadcast chan []byte
+	Cfg         config.Config
+	Store       *storage.Store
+	Backend     terminal.Backend
+	adapters    []adapters.Adapter
+	agents      []agents.Agent
+	extensions  *extensions.Manager
+	upgrader    websocket.Upgrader
+	clients     map[*websocket.Conn]bool
+	broadcast   chan []byte
 }
 
 // New creates a daemon.
 func New(cfg config.Config, store *storage.Store, backend terminal.Backend) *Daemon {
 	d := &Daemon{
-		Cfg:       cfg,
-		Store:     store,
-		Backend:   backend,
-		adapters:  adapters.All(),
-		agents:    agents.Detect(),
-		upgrader:  websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
-		clients:   make(map[*websocket.Conn]bool),
-		broadcast: make(chan []byte, 64),
+		Cfg:         cfg,
+		Store:       store,
+		Backend:     backend,
+		adapters:    adapters.All(),
+		agents:      agents.Detect(),
+		extensions:  extensions.NewManager(store),
+		upgrader:    websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
+		clients:     make(map[*websocket.Conn]bool),
+		broadcast:   make(chan []byte, 64),
 	}
 	// record agents
 	for _, a := range d.agents {
 		_ = store.UpsertAgent(a.Name, a.Path)
+	}
+	// discover extensions
+	if err := d.extensions.Discover(); err != nil {
+		fmt.Fprintf(os.Stderr, "extensions: discover: %v\n", err)
 	}
 	return d
 }
@@ -146,9 +153,32 @@ func (d *Daemon) routes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/kill", d.handleKill)
 	mux.HandleFunc("/api/doctor", d.handleDoctor)
 	mux.HandleFunc("/api/adapters", d.handleAdapters)
+	mux.HandleFunc("/api/extensions", d.handleExtensions)
 	mux.HandleFunc("/operator", d.handleOperator)
 	mux.HandleFunc("/api/operator", d.handleOperator)
 	mux.HandleFunc("/ws", d.handleWS)
+
+	// native extensions
+	d.extensions.MountNative(mux)
+
+	// remote extension proxy: /ext/<name>/*
+	mux.HandleFunc("/ext/", func(w http.ResponseWriter, r *http.Request) {
+		// path: /ext/<name>/...
+		parts := strings.SplitN(strings.TrimPrefix(r.URL.Path, "/ext/"), "/", 2)
+		if len(parts) == 0 || parts[0] == "" {
+			http.NotFound(w, r)
+			return
+		}
+		name := parts[0]
+		// native extensions already mounted their own handlers; fall through to proxy for remote
+		if _, ok := extensions.Native(name); ok {
+			http.NotFound(w, r)
+			return
+		}
+		d.extensions.ProxyHandler(name).ServeHTTP(w, r)
+	})
+
+	d.extensions.StartHealthLoop()
 }
 
 func (d *Daemon) handleSessions(w http.ResponseWriter, r *http.Request) {
@@ -323,6 +353,11 @@ func (d *Daemon) handleAdapters(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(rows)
+}
+
+func (d *Daemon) handleExtensions(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(d.extensions.All())
 }
 
 func (d *Daemon) handleWS(w http.ResponseWriter, r *http.Request) {

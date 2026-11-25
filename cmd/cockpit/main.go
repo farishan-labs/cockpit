@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,6 +14,7 @@ import (
 	"github.com/farishan-labs/cockpit/internal/agents"
 	"github.com/farishan-labs/cockpit/internal/config"
 	"github.com/farishan-labs/cockpit/internal/daemon"
+	"github.com/farishan-labs/cockpit/internal/extensions"
 	"github.com/farishan-labs/cockpit/internal/herdr"
 	"github.com/farishan-labs/cockpit/internal/storage"
 	"github.com/farishan-labs/cockpit/internal/terminal"
@@ -179,6 +181,19 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 				fmt.Printf("storage: ok (%s)\n", cfg.DBPath)
 			} else {
 				fmt.Printf("storage: %v\n", err)
+			}
+			// extensions (best-effort)
+			if store, err := storage.Open(cfg.DBPath); err == nil {
+				mgr := extensions.NewManager(store)
+				_ = mgr.Discover()
+				for _, e := range mgr.All() {
+					avail := "unavailable"
+					if e.Available {
+						avail = "available"
+					}
+					fmt.Printf("extension: %s (%s) %s\n", e.Name, e.Kind, avail)
+				}
+				store.Close()
 			}
 			if pid, ok := readPID(); ok && isRunning(pid) {
 				fmt.Printf("daemon: running (pid %d)\n", pid)
@@ -477,6 +492,145 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 		},
 	})
 	root.AddCommand(toolCmd)
+
+	// extension command
+	extCmd := &cobra.Command{Use: "extension", Short: "Manage cockpit extensions."}
+	extCmd.AddCommand(&cobra.Command{
+		Use: "list", Short: "List extensions.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, _ := config.Load()
+			store, err := storage.Open(cfg.DBPath)
+			if err != nil {
+				return err
+			}
+			defer store.Close()
+			mgr := extensions.NewManager(store)
+			_ = mgr.Discover()
+			for _, e := range mgr.All() {
+				avail := "unavailable"
+				if e.Available {
+					avail = "available"
+				}
+				state := "enabled"
+				if !e.Enabled {
+					state = "disabled"
+				}
+				fmt.Printf("%-12s %-8s %-10s %-12s %s  tabs=%d\n", e.Name, e.Kind, e.Version, state, avail, len(e.Tabs))
+			}
+			if len(mgr.All()) == 0 {
+				fmt.Println("no extensions discovered")
+			}
+			return nil
+		},
+	})
+	extCmd.AddCommand(&cobra.Command{
+		Use: "add <path>", Short: "Install an extension from a folder.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src := args[0]
+			home, _ := os.UserHomeDir()
+			base := filepath.Join(home, ".config", "cockpit", "extensions")
+			_ = os.MkdirAll(base, 0o755)
+			name := filepath.Base(src)
+			// read manifest to get name
+			b, err := os.ReadFile(filepath.Join(src, "cockpit-extension.json"))
+			if err == nil {
+				var m map[string]any
+				if json.Unmarshal(b, &m) == nil {
+					if n, ok := m["name"].(string); ok && n != "" {
+						name = n
+					}
+				}
+			}
+			dst := filepath.Join(base, name)
+			_ = os.RemoveAll(dst)
+			if err := os.Symlink(src, dst); err != nil {
+				// fallback: copy
+				_ = os.MkdirAll(dst, 0o755)
+				_ = filepath.Walk(src, func(p string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					rel, _ := filepath.Rel(src, p)
+					target := filepath.Join(dst, rel)
+					if info.IsDir() {
+						return os.MkdirAll(target, info.Mode())
+					}
+					data, _ := os.ReadFile(p)
+					return os.WriteFile(target, data, info.Mode())
+				})
+			}
+			fmt.Printf("added extension %s\n", name)
+			return nil
+		},
+	})
+	extCmd.AddCommand(&cobra.Command{
+		Use: "remove <name>", Short: "Remove an extension.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			home, _ := os.UserHomeDir()
+			dst := filepath.Join(home, ".config", "cockpit", "extensions", args[0])
+			_ = os.RemoveAll(dst)
+			cfg, _ := config.Load()
+			store, _ := storage.Open(cfg.DBPath)
+			if store != nil {
+				_ = store.RemoveExtension(args[0])
+				store.Close()
+			}
+			fmt.Printf("removed extension %s\n", args[0])
+			return nil
+		},
+	})
+	for _, sub := range []struct {
+		use  string
+		toggle bool
+		val  bool
+	}{
+		{"enable", true, true},
+		{"disable", true, false},
+	} {
+		val := sub.val
+		name := sub.use
+		extCmd.AddCommand(&cobra.Command{
+			Use: name + " <ext>", Short: name + " an extension.",
+			Args: cobra.ExactArgs(1),
+			RunE: func(cmd *cobra.Command, args []string) error {
+				cfg, _ := config.Load()
+				store, err := storage.Open(cfg.DBPath)
+				if err != nil {
+					return err
+				}
+				defer store.Close()
+				mgr := extensions.NewManager(store)
+				_ = mgr.Discover()
+				if err := mgr.SetEnabled(args[0], val); err != nil {
+					return err
+				}
+				fmt.Printf("%s %s\n", name+"d", args[0])
+				return nil
+			},
+		})
+	}
+	extCmd.AddCommand(&cobra.Command{
+		Use: "sync <name>", Short: "Sync an extension.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, _ := config.Load()
+			store, err := storage.Open(cfg.DBPath)
+			if err != nil {
+				return err
+			}
+			defer store.Close()
+			mgr := extensions.NewManager(store)
+			_ = mgr.Discover()
+			if err := mgr.Sync(args[0]); err != nil {
+				return err
+			}
+			fmt.Printf("synced %s\n", args[0])
+			return nil
+		},
+	})
+	root.AddCommand(extCmd)
 
 	if err := root.Execute(); err != nil {
 		fmt.Println(err)
