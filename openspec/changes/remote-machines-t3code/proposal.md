@@ -11,10 +11,11 @@ keeps the multi-machine workflow (Mac ↔ oscar) visible and auditable.
 
 ## What Changes
 
-- Introduce a **Machine registry** in cockpit: named machines with transport
-  (tailscale host / SSH target), labels (work/personal), and stored metadata.
-- Add a **Tailscale adapter** (`tailscale status/ping`) reporting node
-  reachability, IP, OS, and online/offline.
+- Consume the `machines` product as the single source of truth for machine
+  inventory, tunnel config (incl. SSH targets), and reachability. Cockpit does
+  NOT maintain a parallel machine registry; all T3-specific state is keyed by
+  `machines` ID.
+- (Removed) Tailscale adapter — reachability comes from `machines check --json`.
 - Add a **T3 Code adapter** that, per machine, reports service version, port,
   LAN/T3-Connect state, and a reachable web URL; can mint a pairing token via
   `t3 pair` (local or `--tailscale`).
@@ -25,10 +26,11 @@ keeps the multi-machine workflow (Mac ↔ oscar) visible and auditable.
   pairing token + QR).
 - CLI: `cockpit machine add|list|remove|check [name]`, and
   `cockpit t3 pair <machine> [--ttl]`.
-- Storage: persist machine registry + last-check results in SQLite; append
-  check events to the JSONL event log.
-- (Optional, later) Consume a shared machine list from `machines` product /
-  `workflow.toml` instead of a cockpit-only list.
+- Storage: persist T3-specific state (port, pairing tokens, service status,
+  check history) in SQLite keyed by `machines` ID; append check events to the
+  JSONL event log. No machine inventory duplication.
+- (Resolved) `machines` product is the single source of truth for inventory;
+  cockpit consumes `machines list/check --json`.
 
 ## Capabilities
 
