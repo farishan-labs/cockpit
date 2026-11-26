@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"os/exec"
 	"strings"
 	"time"
@@ -199,12 +200,23 @@ func PairMachine(sshUser, host string, tailscale bool, ttl string) (string, erro
 	}
 	out, err := SSHRun(sshUser, host, cmd)
 	if err != nil {
-		// fallback without flags
+		if u := tailscaleAuthURL(out); u != "" {
+			return "", fmt.Errorf("tailscale SSH approval required: visit %s", u)
+		}
+		// fallback without flags (only for flag-related failures)
 		out2, err2 := SSHRun(sshUser, host, "t3 pair")
 		if err2 != nil {
-			return out + "\n" + out2, err2
+			if u := tailscaleAuthURL(out2); u != "" {
+				return "", fmt.Errorf("tailscale SSH approval required: visit %s", u)
+			}
+			return "", fmt.Errorf("ssh to %s failed: %s", host, strings.TrimSpace(out2))
 		}
 		return strings.TrimSpace(out2), nil
 	}
 	return strings.TrimSpace(out), nil
+}
+
+func tailscaleAuthURL(s string) string {
+	re := regexp.MustCompile(`https://login\.tailscale\.com/a/[A-Za-z0-9]+`)
+	return re.FindString(s)
 }
