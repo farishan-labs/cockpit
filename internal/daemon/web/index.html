@@ -192,7 +192,8 @@ async function refreshMachines() {
       const st = getMachineState(m.id);
       const checkLabel = st.checking ? 'Checking…' : 'Re-check';
       const pairLabel = st.pairing ? 'Pairing…' : 'Pair';
-      html += `<tr><td>${escapeHtml(m.name||m.id)}</td><td>${escapeHtml(m.host)}</td><td>${escapeHtml(t3)}${paired ? ' · <a href="${webUrl}" target="_blank" rel="noopener">${escapeHtml(webUrl)}</a>' : ''}</td><td>
+      const linkHtml = paired ? ' · <a href="' + webUrl + '" target="_blank" rel="noopener">' + escapeHtml(webUrl) + '</a>' : '';
+      html += `<tr><td>${escapeHtml(m.name||m.id)}</td><td>${escapeHtml(m.host)}</td><td>${escapeHtml(t3)}${linkHtml}</td><td>
         <button onclick="checkMachine('${escapeHtml(m.id)}')" ${st.checking||st.pairing?'disabled':''}>${checkLabel}</button>
         ${paired ? '' : `<button onclick="pairMachine('${escapeHtml(m.id)}')" ${st.checking||st.pairing?'disabled':''}>${pairLabel}</button>`}
         ${st.error ? `<div class="machine-status dead">${escapeHtml(st.error)}</div>` : ''}
