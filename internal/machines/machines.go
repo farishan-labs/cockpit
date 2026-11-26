@@ -201,13 +201,13 @@ func PairMachine(sshUser, host string, tailscale bool, ttl string) (string, erro
 	out, err := SSHRun(sshUser, host, cmd)
 	if err != nil {
 		if u := tailscaleAuthURL(out); u != "" {
-			return "", fmt.Errorf("tailscale SSH approval required: visit %s", u)
+			acct := tailscaleAccount(); msg := "tailscale SSH approval required"; if acct != "" { msg += " (tailnet account: " + acct + ")" }; return "", fmt.Errorf("%s: visit %s", msg, u)
 		}
 		// fallback without flags (only for flag-related failures)
 		out2, err2 := SSHRun(sshUser, host, "t3 pair")
 		if err2 != nil {
 			if u := tailscaleAuthURL(out2); u != "" {
-				return "", fmt.Errorf("tailscale SSH approval required: visit %s", u)
+				acct := tailscaleAccount(); msg := "tailscale SSH approval required"; if acct != "" { msg += " (tailnet account: " + acct + ")" }; return "", fmt.Errorf("%s: visit %s", msg, u)
 			}
 			return "", fmt.Errorf("ssh to %s failed: %s", host, strings.TrimSpace(out2))
 		}
@@ -219,4 +219,25 @@ func PairMachine(sshUser, host string, tailscale bool, ttl string) (string, erro
 func tailscaleAuthURL(s string) string {
 	re := regexp.MustCompile(`https://login\.tailscale\.com/a/[A-Za-z0-9]+`)
 	return re.FindString(s)
+}
+
+func tailscaleAccount() string {
+	out, err := exec.Command("tailscale", "status", "--json").Output()
+	if err != nil {
+		return ""
+	}
+	var d struct {
+		Self struct {
+			CapMap map[string][]interface{} `json:"CapMap"`
+		} `json:"Self"`
+	}
+	if err := json.Unmarshal(out, &d); err != nil {
+		return ""
+	}
+	if v := d.Self.CapMap["tailnet-display-name"]; len(v) > 0 {
+		if s, ok := v[0].(string); ok {
+			return s
+		}
+	}
+	return ""
 }
