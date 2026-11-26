@@ -13,7 +13,10 @@
   header { padding: 1rem 1.5rem; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
   main { padding: 1.5rem; max-width: 1100px; margin: 0 auto; }
   .card { background: #14181d; border: 1px solid #222; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-  table { width: 100%; border-collapse: collapse; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  td, th { overflow-wrap: anywhere; word-break: break-word; }
+  pre { white-space: pre-wrap; word-break: break-all; max-width: 100%; margin: 0; }
+  .card { overflow-x: auto; }
   th, td { text-align: left; padding: .5rem; border-bottom: 1px solid #222; }
   .live { color: #4ade80; }
   .dead { color: #f87171; }
