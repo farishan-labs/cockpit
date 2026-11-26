@@ -451,6 +451,27 @@ func (d *Daemon) handleMachinesPair(w http.ResponseWriter, r *http.Request) {
 		port = st.Port
 	}
 	out, err := machines.PairMachine("", target.ConnectHost(), tailscaleFlag, ttl)
+	if err != nil && strings.Contains(err.Error(), "t3 CLI not found") {
+		// Fallback: if the T3 web UI is reachable, pair to it without a token.
+		url := fmt.Sprintf("http://%s:%d/", target.ConnectHost(), port)
+		resp, herr := http.Get(url)
+		if herr == nil {
+			resp.Body.Close()
+			if resp.StatusCode == 200 {
+				st := storage.T3State{MachineID: target.ID, Port: port, ServiceStatus: "ok"}
+				if old, ok, _ := d.Store.GetT3State(target.ID); ok {
+					st.PairingToken = old.PairingToken
+				}
+				_ = d.Store.UpsertT3State(st)
+				_ = storage.AppendJSONL(d.Cfg.EventLogPath, map[string]any{"type": "machine_pair", "machine": target.ID, "via": "web", "ts": time.Now().UTC()})
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]any{"machine": target.ID, "result": "paired via web UI: " + url})
+				return
+			}
+		}
+		http.Error(w, err.Error()+"\n"+out, 500)
+		return
+	}
 	if err != nil {
 		http.Error(w, err.Error()+"\n"+out, 500)
 		return
