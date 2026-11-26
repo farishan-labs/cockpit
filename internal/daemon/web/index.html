@@ -191,15 +191,22 @@ async function refreshMachines() {
       const webUrl = 'http://' + targetHost + ':' + port + '/';
       const token = (m.t3_state && m.t3_state.pairing_token) || '';
       const pm = token.match(/Pairing URL:\s*(\S+)/);
-      const displayUrl = pm ? pm[1] : webUrl;
+      let displayUrl = pm ? pm[1] : webUrl;
+      if (pm) {
+        try {
+          const u = new URL(displayUrl);
+          u.host = targetHost + ':' + port;
+          displayUrl = u.toString();
+        } catch (e) {}
+      }
       const st = getMachineState(m.id);
       const checkLabel = st.checking ? 'Checking…' : 'Re-check';
       const pairLabel = st.pairing ? 'Pairing…' : 'Pair';
       const linkHtml = paired ? ' · <a href="' + displayUrl + '" target="_blank" rel="noopener">' + escapeHtml(displayUrl) + '</a>' : '';
       html += `<tr><td>${escapeHtml(m.name||m.id)}</td><td>${escapeHtml(m.host)}</td><td>${escapeHtml(t3)}${linkHtml}</td><td>
         <button onclick="checkMachine('${escapeHtml(m.id)}')" ${st.checking||st.pairing?'disabled':''}>${checkLabel}</button>
-        ${paired ? `<button onclick="pairMachine('${escapeHtml(m.id)}')" ${st.checking||st.pairing?'disabled':''}>Re-pair</button>
-        <button onclick="unpairMachine('${escapeHtml(m.id)}')" ${st.checking||st.pairing?'disabled':''}>Unpair</button>` : `<button onclick="pairMachine('${escapeHtml(m.id)}')" ${st.checking||st.pairing?'disabled':''}>${pairLabel}</button>`}
+        ${paired ? `<button onclick="pairMachine('${escapeHtml(m.id)}','${escapeHtml(targetHost)}',${port})" ${st.checking||st.pairing?'disabled':''}>Re-pair</button>
+        <button onclick="unpairMachine('${escapeHtml(m.id)}')" ${st.checking||st.pairing?'disabled':''}>Unpair</button>` : `<button onclick="pairMachine('${escapeHtml(m.id)}','${escapeHtml(targetHost)}',${port})" ${st.checking||st.pairing?'disabled':''}>${pairLabel}</button>`}
         ${st.error ? `<div class="machine-status dead">${escapeHtml(st.error)}</div>` : ''}
         ${st.message ? `<div class="machine-status live">${escapeHtml(st.message)}</div>` : ''}
       </td></tr>`;
@@ -242,7 +249,7 @@ async function checkMachine(id) {
   }
 }
 
-async function pairMachine(id) {
+async function pairMachine(id, targetHost, port) {
   const st = getMachineState(id);
   if (st.checking || st.pairing) return;
   st.pairing = true;
@@ -259,7 +266,15 @@ async function pairMachine(id) {
     }
     const result = data.result || data.Result || 'paired';
     const m = result.match(/Pairing URL:\s*(\S+)/);
-    st.message = m ? ('Paired: ' + m[1]) : 'Paired';
+    let pairingUrl = m ? m[1] : '';
+    if (pairingUrl) {
+      try {
+        const u = new URL(pairingUrl);
+        u.host = targetHost + ':' + port;
+        pairingUrl = u.toString();
+      } catch (e) {}
+    }
+    st.message = pairingUrl ? ('Paired: ' + pairingUrl) : 'Paired';
     alert(result);
   } catch (e) {
     st.error = (e && e.message) ? e.message : 'Pair failed';
