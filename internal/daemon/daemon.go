@@ -17,6 +17,7 @@ import (
 
 	"github.com/farishan-labs/cockpit/internal/adapters"
 	"github.com/farishan-labs/cockpit/internal/agents"
+	"github.com/farishan-labs/cockpit/internal/machines"
 	"github.com/farishan-labs/cockpit/internal/config"
 	"github.com/farishan-labs/cockpit/internal/extensions"
 	"github.com/farishan-labs/cockpit/internal/storage"
@@ -153,6 +154,9 @@ func (d *Daemon) routes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/kill", d.handleKill)
 	mux.HandleFunc("/api/doctor", d.handleDoctor)
 	mux.HandleFunc("/api/adapters", d.handleAdapters)
+	mux.HandleFunc("/api/machines", d.handleMachines)
+	mux.HandleFunc("/api/machines/check", d.handleMachinesCheck)
+	mux.HandleFunc("/api/machines/pair", d.handleMachinesPair)
 	mux.HandleFunc("/api/extensions", d.handleExtensions)
 	mux.HandleFunc("/operator", d.handleOperator)
 	mux.HandleFunc("/api/operator", d.handleOperator)
@@ -334,6 +338,131 @@ func (d *Daemon) handleOperator(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+
+func (d *Daemon) handleMachines(w http.ResponseWriter, r *http.Request) {
+	ms, _, err := machines.ListMachines()
+	if err != nil {
+		// return empty list
+		ms = []machines.Machine{}
+	}
+	// merge t3 state
+	type row struct {
+		machines.Machine
+		T3 *storage.T3State `json:"t3_state,omitempty"`
+	}
+	rows := make([]row, 0, len(ms))
+	for _, m := range ms {
+		rw := row{Machine: m}
+		if st, ok, _ := d.Store.GetT3State(m.ID); ok {
+			s := st
+			rw.T3 = &s
+		}
+		rows = append(rows, rw)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		w.WriteHeader(500)
+	}
+	json.NewEncoder(w).Encode(map[string]any{"machines": rows, "error": errString(err)})
+}
+
+func errString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
+func (d *Daemon) handleMachinesCheck(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", 405)
+		return
+	}
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		name = r.FormValue("name")
+	}
+	ms, _, err := machines.ListMachines()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	var results []machines.CheckResult
+	for _, m := range ms {
+		if name != "" && m.ID != name && m.Name != name {
+			continue
+		}
+		// determine ssh user/port from t3 state (port) - default
+		port := 3773
+		sshUser := ""
+		if st, ok, _ := d.Store.GetT3State(m.ID); ok && st.Port > 0 {
+			port = st.Port
+		}
+		// ssh user not in machines product; leave empty (ssh uses default)
+		res := machines.CheckMachine(d.Store, m, sshUser, port)
+		results = append(results, res)
+		// jsonl event
+		b, _ := json.Marshal(res)
+		_ = storage.AppendJSONL(d.Cfg.EventLogPath, map[string]any{"type": "machine_check", "machine": m.ID, "result": string(b), "ts": time.Now().UTC()})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(results)
+}
+
+func (d *Daemon) handleMachinesPair(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", 405)
+		return
+	}
+	machine := r.FormValue("machine")
+	ttl := r.FormValue("ttl")
+	tailscaleFlag := r.FormValue("tailscale") == "true" || r.FormValue("tailscale") == "1"
+	var req struct {
+		Machine   string `json:"machine"`
+		TTL       string `json:"ttl"`
+		Tailscale bool   `json:"tailscale"`
+	}
+	if machine == "" {
+		json.NewDecoder(r.Body).Decode(&req)
+		machine = req.Machine
+		if ttl == "" { ttl = req.TTL }
+		tailscaleFlag = tailscaleFlag || req.Tailscale
+	}
+	if ttl == "" { ttl = "24h" }
+	ms, _, err := machines.ListMachines()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	var target *machines.Machine
+	for i := range ms {
+		if ms[i].ID == machine || ms[i].Name == machine {
+			target = &ms[i]
+			break
+		}
+	}
+	if target == nil {
+		http.Error(w, "machine not found", 404)
+		return
+	}
+	port := 3773
+	if st, ok, _ := d.Store.GetT3State(target.ID); ok && st.Port > 0 {
+		port = st.Port
+	}
+	out, err := machines.PairMachine("", target.Host, tailscaleFlag, ttl)
+	if err != nil {
+		http.Error(w, err.Error()+"\n"+out, 500)
+		return
+	}
+	st := storage.T3State{MachineID: target.ID, Port: port, PairingToken: out, ServiceStatus: "paired"}
+	_ = d.Store.UpsertT3State(st)
+	_ = storage.AppendJSONL(d.Cfg.EventLogPath, map[string]any{"type": "machine_pair", "machine": target.ID, "ts": time.Now().UTC()})
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"machine": target.ID, "result": out})
+}
+
+
+
 func (d *Daemon) handleAdapters(w http.ResponseWriter, r *http.Request) {
 	type row struct {
 		Name   string         `json:"name"`
@@ -359,6 +488,7 @@ func (d *Daemon) handleExtensions(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(d.extensions.All())
 }
+
 
 func (d *Daemon) handleWS(w http.ResponseWriter, r *http.Request) {
 	conn, err := d.upgrader.Upgrade(w, r, nil)

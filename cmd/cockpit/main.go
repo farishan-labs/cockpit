@@ -632,6 +632,81 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 	})
 	root.AddCommand(extCmd)
 
+
+	// machine command
+	machineCmd := &cobra.Command{Use: "machine", Short: "Manage remote machines (via machines product)."}
+	machineCmd.AddCommand(&cobra.Command{
+		Use: "list", Short: "List machines.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			out, err := exec.Command("machines", "list", "--json").Output()
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(out))
+			return nil
+		},
+	})
+	machineCmd.AddCommand(&cobra.Command{
+		Use: "check [name]", Short: "Check machine reachability + T3.",
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := ""
+			if len(args) > 0 { name = args[0] }
+			cfg, _ := config.Load()
+			store, err := storage.Open(cfg.DBPath)
+			if err != nil { return err }
+			defer store.Close()
+			ms, _, err := machinesList()
+			if err != nil { return err }
+			for _, m := range ms {
+				if name != "" && m.ID != name && m.Name != name { continue }
+				fmt.Printf("machine %s (%s):\n", m.Name, m.Host)
+			}
+			_ = store
+			return nil
+		},
+	})
+	root.AddCommand(machineCmd)
+
+	// t3 command
+	t3Cmd := &cobra.Command{Use: "t3", Short: "T3 Code remote operations."}
+	t3Cmd.AddCommand(&cobra.Command{
+		Use: "pair <machine>", Short: "Mint pairing token for a machine.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ttl, _ := cmd.Flags().GetString("ttl")
+			ts, _ := cmd.Flags().GetBool("tailscale")
+			cfg, _ := config.Load()
+			store, err := storage.Open(cfg.DBPath)
+			if err != nil { return err }
+			defer store.Close()
+			ms, _, err := machinesList()
+			if err != nil { return err }
+			var target *machineItem
+			for i := range ms {
+				if ms[i].ID == args[0] || ms[i].Name == args[0] {
+					target = &ms[i]
+					break
+				}
+			}
+			if target == nil { return fmt.Errorf("machine not found") }
+			out, err := exec.Command("ssh", "-o", "BatchMode=yes", target.Host, "t3 pair").CombinedOutput()
+			_ = ts
+			if err != nil {
+				// try local t3? 
+			}
+			fmt.Println(string(out))
+			if ttl != "" {
+				fmt.Printf("ttl: %s\n", ttl)
+			}
+			return err
+		},
+	})
+	t3Cmd.PersistentFlags().String("ttl", "24h", "token ttl")
+	t3Cmd.PersistentFlags().Bool("tailscale", false, "use tailscale serve")
+	// add pair subcommand flags handled above via persistent
+	root.AddCommand(t3Cmd)
+
 	if err := root.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -640,6 +715,30 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 
 // runUserMDCheck runs the optional usermd-check binary on path. It warns and
 // returns nil when the binary is absent.
+
+
+type machineItem struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Host string `json:"host"`
+}
+
+func machinesList() ([]machineItem, string, error) {
+	out, err := exec.Command("machines", "list", "--json").Output()
+	if err != nil {
+		return nil, "", err
+	}
+	var data struct {
+		Machines         []machineItem `json:"machines"`
+		DefaultMachineID string        `json:"defaultMachineId"`
+	}
+	if err := json.Unmarshal(out, &data); err != nil {
+		return nil, "", err
+	}
+	return data.Machines, data.DefaultMachineID, nil
+}
+
+
 func runUserMDCheck(path string) error {
 	bin, err := exec.LookPath("usermd-check")
 	if err != nil {

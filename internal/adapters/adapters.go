@@ -139,7 +139,49 @@ func (Machines) Status() (map[string]any, error) {
 	}, nil
 }
 
+// T3Code aggregates T3 Code service status per machine (via machines product).
+type T3Code struct{}
+
+func (T3Code) Name() string { return "t3-code" }
+
+func (T3Code) Available() bool {
+	_, err := exec.LookPath("t3")
+	if err != nil {
+		_, err = exec.LookPath("ssh")
+	}
+	return err == nil
+}
+
+func (T3Code) Status() (map[string]any, error) {
+	if _, err := exec.LookPath("machines"); err != nil {
+		return map[string]any{"available": false, "reason": "machines not found"}, nil
+	}
+	out, err := exec.Command("machines", "list", "--json").Output()
+	if err != nil {
+		return nil, fmt.Errorf("machines list: %w", err)
+	}
+	var data struct {
+		Machines []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+			Host string `json:"host"`
+		} `json:"machines"`
+	}
+	if err := json.Unmarshal(out, &data); err != nil {
+		return map[string]any{"available": true, "raw": string(out)}, nil
+	}
+	items := make([]map[string]any, 0, len(data.Machines))
+	for _, m := range data.Machines {
+		items = append(items, map[string]any{"id": m.ID, "name": m.Name, "host": m.Host})
+	}
+	return map[string]any{
+		"available": true,
+		"machines":  items,
+		"count":     len(data.Machines),
+	}, nil
+}
+
 // All returns the default adapter set for M3.
 func All() []Adapter {
-	return []Adapter{Herdr{}, Opencode{}, Pi{}, Machines{}}
+	return []Adapter{Herdr{}, Opencode{}, Pi{}, Machines{}, T3Code{}}
 }

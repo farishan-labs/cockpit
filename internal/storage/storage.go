@@ -68,6 +68,20 @@ func (s *Store) migrate() error {
 			last_sync TEXT,
 			last_seen TEXT
 		);`,
+		`CREATE TABLE IF NOT EXISTS t3_state (
+			machine_id TEXT PRIMARY KEY,
+			port INTEGER NOT NULL DEFAULT 3773,
+			pairing_token TEXT NOT NULL DEFAULT '',
+			service_status TEXT NOT NULL DEFAULT '',
+			last_check TEXT NOT NULL DEFAULT '',
+			updated_at TEXT NOT NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS machine_checks (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			machine_id TEXT NOT NULL,
+			result TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		);`,
 	}
 	for _, st := range stmts {
 		if _, err := s.db.Exec(st); err != nil {
@@ -299,4 +313,88 @@ func boolToInt(b bool) int {
 		return 1
 	}
 	return 0
+}
+
+// T3State records T3 Code state for a machine (keyed by machines ID).
+type T3State struct {
+	MachineID     string    `json:"machine_id"`
+	Port          int       `json:"port"`
+	PairingToken  string    `json:"pairing_token,omitempty"`
+	ServiceStatus string    `json:"service_status"`
+	LastCheck     string    `json:"last_check,omitempty"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+// UpsertT3State inserts or updates T3 state for a machine.
+func (s *Store) UpsertT3State(st T3State) error {
+	if st.Port == 0 {
+		st.Port = 3773
+	}
+	t := now()
+	_, err := s.db.Exec(`INSERT INTO t3_state (machine_id,port,pairing_token,service_status,last_check,updated_at) VALUES (?,?,?,?,?,?)
+		ON CONFLICT(machine_id) DO UPDATE SET port=excluded.port, pairing_token=excluded.pairing_token, service_status=excluded.service_status, last_check=excluded.last_check, updated_at=excluded.updated_at`,
+		st.MachineID, st.Port, st.PairingToken, st.ServiceStatus, st.LastCheck, t)
+	return err
+}
+
+// GetT3State returns T3 state for a machine.
+func (s *Store) GetT3State(machineID string) (T3State, bool, error) {
+	row := s.db.QueryRow(`SELECT machine_id,port,pairing_token,service_status,last_check,updated_at FROM t3_state WHERE machine_id=?`, machineID)
+	var st T3State
+	var u string
+	if err := row.Scan(&st.MachineID, &st.Port, &st.PairingToken, &st.ServiceStatus, &st.LastCheck, &u); err != nil {
+		if err == sql.ErrNoRows {
+			return T3State{}, false, nil
+		}
+		return T3State{}, false, err
+	}
+	st.UpdatedAt, _ = time.Parse(time.RFC3339, u)
+	return st, true, nil
+}
+
+// ListT3States returns all T3 states.
+func (s *Store) ListT3States() ([]T3State, error) {
+	rows, err := s.db.Query(`SELECT machine_id,port,pairing_token,service_status,last_check,updated_at FROM t3_state ORDER BY machine_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []T3State
+	for rows.Next() {
+		var st T3State
+		var u string
+		if err := rows.Scan(&st.MachineID, &st.Port, &st.PairingToken, &st.ServiceStatus, &st.LastCheck, &u); err != nil {
+			return nil, err
+		}
+		st.UpdatedAt, _ = time.Parse(time.RFC3339, u)
+		out = append(out, st)
+	}
+	return out, rows.Err()
+}
+
+// AddMachineCheck appends a check result (JSON) for a machine.
+func (s *Store) AddMachineCheck(machineID, resultJSON string) error {
+	_, err := s.db.Exec(`INSERT INTO machine_checks (machine_id,result,created_at) VALUES (?,?,?)`, machineID, resultJSON, now())
+	return err
+}
+
+// ListMachineChecks returns recent checks for a machine.
+func (s *Store) ListMachineChecks(machineID string, limit int) ([]string, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	rows, err := s.db.Query(`SELECT result FROM machine_checks WHERE machine_id=? ORDER BY id DESC LIMIT ?`, machineID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var r string
+		if err := rows.Scan(&r); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }

@@ -153,6 +153,7 @@ Composition of a minimal core plus adapters and clients:
 4. Launch an agent (claude/pi/opencode) in a tmux session from the UI.
 5. Tool registry: list + enable/disable (manifest-based, no install yet).
 6. Append-only event log for launched sessions.
+7. Remote machines: aggregate machine inventory via `machines`, T3 Code status, checks, pairing (remote-machines-t3code).
 
 ## Non-goals (v1)
 
