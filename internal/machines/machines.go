@@ -209,7 +209,11 @@ func PairMachine(sshUser, host string, tailscale bool, ttl string) (string, erro
 			if u := tailscaleAuthURL(out2); u != "" {
 				acct := tailscaleAccount(); msg := "tailscale SSH approval required"; if acct != "" { msg += " (tailnet account: " + acct + ")" }; return "", fmt.Errorf("%s: visit %s", msg, u)
 			}
-			return "", fmt.Errorf("ssh to %s failed: %s", host, strings.TrimSpace(out2))
+			detail := strings.TrimSpace(out2)
+			if strings.Contains(detail, "command not found") || strings.Contains(detail, "not found") {
+				return "", fmt.Errorf("t3 CLI not found on %s; install T3 Code on the remote machine", host)
+			}
+			return "", fmt.Errorf("ssh to %s failed: %s", host, detail)
 		}
 		return strings.TrimSpace(out2), nil
 	}
