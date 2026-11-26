@@ -254,7 +254,8 @@ async function pairMachine(id) {
       throw new Error((data && (data.error || data.result)) || text || ('HTTP ' + r.status));
     }
     const result = data.result || data.Result || 'paired';
-    st.message = 'Paired';
+    const m = result.match(/Pairing URL:\s*(\S+)/);
+    st.message = m ? ('Paired: ' + m[1]) : 'Paired';
     alert(result);
   } catch (e) {
     st.error = (e && e.message) ? e.message : 'Pair failed';

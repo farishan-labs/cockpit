@@ -139,7 +139,7 @@ func CheckMachine(store *storage.Store, m Machine, sshUser string, port int) Che
 	t3OK := false
 	t3Detail := ""
 	if sshOK {
-		out, err := SSHRun(sshUser, host, "t3 --version 2>/dev/null; t3 status --json 2>/dev/null || t3 status")
+		out, err := SSHRun(sshUser, host, "export PATH=\"$HOME/.local/bin:$PATH\"; t3 --version 2>/dev/null; t3 status --json 2>/dev/null || t3 status")
 		if err == nil {
 			t3OK = true
 			t3Detail = strings.TrimSpace(out)
@@ -191,7 +191,7 @@ func boolStatus(ok bool) string {
 
 // PairMachine mints a pairing token over SSH.
 func PairMachine(sshUser, host string, tailscale bool, ttl string) (string, error) {
-	cmd := "t3 pair"
+	cmd := "export PATH=\"$HOME/.local/bin:$PATH\"; t3 pair"
 	if tailscale {
 		cmd += " --tailscale"
 	}
@@ -204,7 +204,7 @@ func PairMachine(sshUser, host string, tailscale bool, ttl string) (string, erro
 			acct := tailscaleAccount(); msg := "tailscale SSH approval required"; if acct != "" { msg += " (tailnet account: " + acct + ")" }; return "", fmt.Errorf("%s: visit %s", msg, u)
 		}
 		// fallback without flags (only for flag-related failures)
-		out2, err2 := SSHRun(sshUser, host, "t3 pair")
+		out2, err2 := SSHRun(sshUser, host, "export PATH=\"$HOME/.local/bin:$PATH\"; t3 pair")
 		if err2 != nil {
 			if u := tailscaleAuthURL(out2); u != "" {
 				acct := tailscaleAccount(); msg := "tailscale SSH approval required"; if acct != "" { msg += " (tailnet account: " + acct + ")" }; return "", fmt.Errorf("%s: visit %s", msg, u)
