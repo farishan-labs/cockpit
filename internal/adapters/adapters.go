@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strings"
 )
 
 // Adapter aggregates an external tool into the cockpit dashboard.
@@ -182,6 +183,37 @@ func (T3Code) Status() (map[string]any, error) {
 }
 
 // All returns the default adapter set for M3.
+// Providers aggregates the FHL providers registry.
+type Providers struct{}
+
+func (Providers) Name() string { return "providers" }
+
+func (Providers) Available() bool {
+	_, err := exec.LookPath("providers")
+	return err == nil
+}
+
+func (Providers) Status() (map[string]any, error) {
+	if _, err := exec.LookPath("providers"); err != nil {
+		return map[string]any{"available": false}, nil
+	}
+	out, err := exec.Command("providers", "list").Output()
+	if err != nil {
+		return map[string]any{"available": true, "raw": string(out)}, nil
+	}
+	lines := 0
+	for _, l := range strings.Split(string(out), "\n") {
+		if strings.TrimSpace(l) != "" {
+			lines++
+		}
+	}
+	return map[string]any{
+		"available": true,
+		"count":     lines,
+		"serve_url": "http://127.0.0.1:8090/",
+	}, nil
+}
+
 func All() []Adapter {
-	return []Adapter{Herdr{}, Opencode{}, Pi{}, Machines{}, T3Code{}}
+	return []Adapter{Herdr{}, Opencode{}, Pi{}, Machines{}, T3Code{}, Providers{}}
 }
