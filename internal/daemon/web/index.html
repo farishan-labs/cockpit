@@ -189,13 +189,17 @@ async function refreshMachines() {
       const port = (m.t3_state && m.t3_state.port) || 3773;
       const targetHost = (m.tunnel && m.tunnel.target) || m.host;
       const webUrl = 'http://' + targetHost + ':' + port + '/';
+      const token = (m.t3_state && m.t3_state.pairing_token) || '';
+      const pm = token.match(/Pairing URL:\s*(\S+)/);
+      const displayUrl = pm ? pm[1] : webUrl;
       const st = getMachineState(m.id);
       const checkLabel = st.checking ? 'Checking…' : 'Re-check';
       const pairLabel = st.pairing ? 'Pairing…' : 'Pair';
-      const linkHtml = paired ? ' · <a href="' + webUrl + '" target="_blank" rel="noopener">' + escapeHtml(webUrl) + '</a>' : '';
+      const linkHtml = paired ? ' · <a href="' + displayUrl + '" target="_blank" rel="noopener">' + escapeHtml(displayUrl) + '</a>' : '';
       html += `<tr><td>${escapeHtml(m.name||m.id)}</td><td>${escapeHtml(m.host)}</td><td>${escapeHtml(t3)}${linkHtml}</td><td>
         <button onclick="checkMachine('${escapeHtml(m.id)}')" ${st.checking||st.pairing?'disabled':''}>${checkLabel}</button>
-        ${paired ? '' : `<button onclick="pairMachine('${escapeHtml(m.id)}')" ${st.checking||st.pairing?'disabled':''}>${pairLabel}</button>`}
+        ${paired ? `<button onclick="pairMachine('${escapeHtml(m.id)}')" ${st.checking||st.pairing?'disabled':''}>Re-pair</button>
+        <button onclick="unpairMachine('${escapeHtml(m.id)}')" ${st.checking||st.pairing?'disabled':''}>Unpair</button>` : `<button onclick="pairMachine('${escapeHtml(m.id)}')" ${st.checking||st.pairing?'disabled':''}>${pairLabel}</button>`}
         ${st.error ? `<div class="machine-status dead">${escapeHtml(st.error)}</div>` : ''}
         ${st.message ? `<div class="machine-status live">${escapeHtml(st.message)}</div>` : ''}
       </td></tr>`;
@@ -264,6 +268,28 @@ async function pairMachine(id) {
     refreshMachines();
   }
 }
+async function unpairMachine(id) {
+  const st = getMachineState(id);
+  if (st.checking || st.pairing) return;
+  st.pairing = true;
+  st.error = '';
+  st.message = '';
+  refreshMachines();
+  try {
+    const r = await fetch('/api/machines/unpair', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({machine:id})});
+    if (!r.ok) {
+      const text = await r.text();
+      throw new Error(text || ('HTTP ' + r.status));
+    }
+    st.message = 'Unpaired';
+  } catch (e) {
+    st.error = (e && e.message) ? e.message : 'Unpair failed';
+  } finally {
+    st.pairing = false;
+    refreshMachines();
+  }
+}
+
 
 async function refreshExtensions() {
   const r = await fetch('/api/extensions');

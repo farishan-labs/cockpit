@@ -158,6 +158,7 @@ func (d *Daemon) routes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/machines", d.handleMachines)
 	mux.HandleFunc("/api/machines/check", d.handleMachinesCheck)
 	mux.HandleFunc("/api/machines/pair", d.handleMachinesPair)
+	mux.HandleFunc("/api/machines/unpair", d.handleMachinesUnpair)
 	mux.HandleFunc("/api/extensions", d.handleExtensions)
 	mux.HandleFunc("/operator", d.handleOperator)
 	mux.HandleFunc("/api/operator", d.handleOperator)
@@ -483,6 +484,48 @@ func (d *Daemon) handleMachinesPair(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]any{"machine": target.ID, "result": out})
 }
 
+
+
+
+func (d *Daemon) handleMachinesUnpair(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", 405)
+		return
+	}
+	machine := r.FormValue("machine")
+	var req struct {
+		Machine string `json:"machine"`
+	}
+	if machine == "" {
+		json.NewDecoder(r.Body).Decode(&req)
+		machine = req.Machine
+	}
+	ms, _, err := machines.ListMachines()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	var target *machines.Machine
+	for i := range ms {
+		if ms[i].ID == machine || ms[i].Name == machine {
+			target = &ms[i]
+			break
+		}
+	}
+	if target == nil {
+		http.Error(w, "machine not found", 404)
+		return
+	}
+	port := 3773
+	if st, ok, _ := d.Store.GetT3State(target.ID); ok && st.Port > 0 {
+		port = st.Port
+	}
+	st := storage.T3State{MachineID: target.ID, Port: port, ServiceStatus: "unpaired"}
+	_ = d.Store.UpsertT3State(st)
+	_ = storage.AppendJSONL(d.Cfg.EventLogPath, map[string]any{"type": "machine_unpair", "machine": target.ID, "ts": time.Now().UTC()})
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"machine": target.ID, "result": "unpaired"})
+}
 
 
 func (d *Daemon) handleFleet(w http.ResponseWriter, r *http.Request) {
