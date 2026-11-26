@@ -154,6 +154,7 @@ func (d *Daemon) routes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/kill", d.handleKill)
 	mux.HandleFunc("/api/doctor", d.handleDoctor)
 	mux.HandleFunc("/api/adapters", d.handleAdapters)
+	mux.HandleFunc("/api/fleet", d.handleFleet)
 	mux.HandleFunc("/api/machines", d.handleMachines)
 	mux.HandleFunc("/api/machines/check", d.handleMachinesCheck)
 	mux.HandleFunc("/api/machines/pair", d.handleMachinesPair)
@@ -462,6 +463,62 @@ func (d *Daemon) handleMachinesPair(w http.ResponseWriter, r *http.Request) {
 }
 
 
+
+func (d *Daemon) handleFleet(w http.ResponseWriter, r *http.Request) {
+	type proc struct {
+		Name      string `json:"name"`
+		Command   string `json:"command"`
+		Type      string `json:"type"`
+		HealthURL string `json:"health_url"`
+	}
+	path := os.Getenv("PROCESSOR_REGISTRY")
+	if path == "" {
+		home, _ := os.UserHomeDir()
+		path = filepath.Join(home, ".config", "fhl", "processor.json")
+	}
+	data, _ := os.ReadFile(path)
+	var reg struct {
+		Processes []proc `json:"processes"`
+	}
+	_ = json.Unmarshal(data, &reg)
+
+	type row struct {
+		Name      string `json:"name"`
+		Type      string `json:"type"`
+		Command   string `json:"command"`
+		Health    string `json:"health"`
+		HealthURL string `json:"health_url,omitempty"`
+		LatencyMs int    `json:"latency_ms,omitempty"`
+	}
+	rows := []row{}
+	client := &http.Client{Timeout: 3 * time.Second}
+	for _, p := range reg.Processes {
+		t := p.Type
+		if t == "" {
+			t = "daemon"
+		}
+		health := "n/a"
+		latency := 0
+		if p.HealthURL != "" {
+			start := time.Now()
+			resp, err := client.Get(p.HealthURL)
+			if err != nil {
+				health = "down"
+			} else {
+				resp.Body.Close()
+				latency = int(time.Since(start).Milliseconds())
+				if resp.StatusCode >= 200 && resp.StatusCode < 400 {
+					health = "ok"
+				} else {
+					health = fmt.Sprintf("http %d", resp.StatusCode)
+				}
+			}
+		}
+		rows = append(rows, row{Name: p.Name, Type: t, Command: p.Command, Health: health, HealthURL: p.HealthURL, LatencyMs: latency})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(rows)
+}
 
 func (d *Daemon) handleAdapters(w http.ResponseWriter, r *http.Request) {
 	type row struct {

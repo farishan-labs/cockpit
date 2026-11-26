@@ -1,0 +1,4 @@
+- [x] Add `/api/fleet` daemon route
+- [x] Implement health probing of HealthURL
+- [x] Add Fleet panel to web UI
+- [x] Document process metadata schema

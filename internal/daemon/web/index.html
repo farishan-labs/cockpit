@@ -59,6 +59,11 @@
     <div id="adapters">loading…</div>
   </div>
 
+  <div class="card">
+    <h2>Fleet (processes)</h2>
+    <div id="fleet">loading…</div>
+  </div>
+
 
   <div class="card">
     <h2>Machines</h2>
@@ -143,6 +148,19 @@ async function refreshAdapters() {
   document.getElementById('adapters').innerHTML = html;
 }
 refreshAdapters();
+
+async function refreshFleet() {
+  const r = await fetch('/api/fleet');
+  const data = await r.json();
+  let html = '<table><thead><tr><th>Name</th><th>Type</th><th>Command</th><th>Health</th></tr></thead><tbody>';
+  for (const p of data) {
+    const cls = (p.health === 'ok') ? 'live' : (p.health === 'down' ? 'dead' : '');
+    html += `<tr><td>${p.name}</td><td>${p.type}</td><td>${p.command}</td><td class="${cls}">${p.health}${p.latency_ms? ' ('+p.latency_ms+'ms)':''}</td></tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById('fleet').innerHTML = html || 'none';
+}
+refreshFleet();
 
 
 async function refreshMachines() {
