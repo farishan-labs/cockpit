@@ -1,6 +1,7 @@
 package machines
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,14 +12,31 @@ import (
 	"github.com/farishan-labs/cockpit/internal/storage"
 )
 
+// Tunnel describes how to reach a machine (e.g. tailscale).
+type Tunnel struct {
+	Backend string `json:"backend,omitempty"`
+	Target  string `json:"target,omitempty"`
+	Command string `json:"command,omitempty"`
+}
+
 // Machine is a machine from the machines product (inventory source of truth).
 type Machine struct {
-	ID   string   `json:"id"`
-	Name string   `json:"name"`
-	OS   string   `json:"os"`
-	Role string   `json:"role"`
-	Host string   `json:"host"`
-	Tags []string `json:"tags"`
+	ID     string   `json:"id"`
+	Name   string   `json:"name"`
+	OS     string   `json:"os"`
+	Role   string   `json:"role"`
+	Host   string   `json:"host"`
+	Tunnel *Tunnel  `json:"tunnel,omitempty"`
+	Tags   []string `json:"tags"`
+}
+
+// ConnectHost returns the host to use for reachability/SSH/HTTP,
+// preferring the tunnel target (e.g. tailscale) when available.
+func (m Machine) ConnectHost() string {
+	if m.Tunnel != nil && m.Tunnel.Target != "" {
+		return m.Tunnel.Target
+	}
+	return m.Host
 }
 
 // ListMachines consumes `machines list --json`.
@@ -46,7 +64,18 @@ func SSHRun(user, host, cmd string) (string, error) {
 	if user != "" {
 		target = user + "@" + host
 	}
-	out, err := exec.Command("ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", target, cmd).CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	c := exec.CommandContext(ctx, "ssh",
+		"-o", "BatchMode=yes",
+		"-o", "ConnectTimeout=5",
+		"-o", "ServerAliveInterval=5",
+		"-o", "ServerAliveCountMax=1",
+		target, cmd)
+	out, err := c.CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		return string(out), fmt.Errorf("ssh %s: timed out waiting for connection/auth", target)
+	}
 	if err != nil {
 		return string(out), fmt.Errorf("ssh %s: %w: %s", target, err, strings.TrimSpace(string(out)))
 	}
@@ -75,7 +104,8 @@ func CheckMachine(store *storage.Store, m Machine, sshUser string, port int) Che
 	if port == 0 {
 		port = 3773
 	}
-	res := CheckResult{MachineID: m.ID, Host: m.Host, At: time.Now().UTC()}
+	host := m.ConnectHost()
+	res := CheckResult{MachineID: m.ID, Host: host, At: time.Now().UTC()}
 	okAll := true
 	add := func(name string, ok bool, detail string) {
 		res.Steps = append(res.Steps, CheckStep{Name: name, OK: ok, Detail: detail})
@@ -86,7 +116,9 @@ func CheckMachine(store *storage.Store, m Machine, sshUser string, port int) Che
 
 	// 1. reachability (ping)
 	pingOK := false
-	pingOut, err := exec.Command("ping", "-c", "1", "-W", "2", m.Host).CombinedOutput()
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer pingCancel()
+	pingOut, err := exec.CommandContext(pingCtx, "ping", "-c", "1", "-W", "2000", host).CombinedOutput()
 	if err == nil {
 		pingOK = true
 	}
@@ -95,7 +127,7 @@ func CheckMachine(store *storage.Store, m Machine, sshUser string, port int) Che
 	// 2. SSH auth probe
 	sshOK := false
 	sshDetail := ""
-	if _, err := SSHRun(sshUser, m.Host, "true"); err == nil {
+	if _, err := SSHRun(sshUser, host, "true"); err == nil {
 		sshOK = true
 	} else {
 		sshDetail = err.Error()
@@ -106,7 +138,7 @@ func CheckMachine(store *storage.Store, m Machine, sshUser string, port int) Che
 	t3OK := false
 	t3Detail := ""
 	if sshOK {
-		out, err := SSHRun(sshUser, m.Host, "t3 --version 2>/dev/null; t3 status --json 2>/dev/null || t3 status")
+		out, err := SSHRun(sshUser, host, "t3 --version 2>/dev/null; t3 status --json 2>/dev/null || t3 status")
 		if err == nil {
 			t3OK = true
 			t3Detail = strings.TrimSpace(out)
@@ -118,7 +150,7 @@ func CheckMachine(store *storage.Store, m Machine, sshUser string, port int) Che
 
 	// 4. HTTP GET
 	httpOK := false
-	url := fmt.Sprintf("http://%s:%d/", m.Host, port)
+	url := fmt.Sprintf("http://%s:%d/", host, port)
 	resp, err := http.Get(url)
 	if err == nil {
 		resp.Body.Close()
@@ -132,9 +164,9 @@ func CheckMachine(store *storage.Store, m Machine, sshUser string, port int) Che
 
 	res.OK = okAll && t3OK && httpOK
 	if httpOK {
-		res.WebURL = fmt.Sprintf("http://%s:%d/", m.Host, port)
+		res.WebURL = fmt.Sprintf("http://%s:%d/", host, port)
 	} else if sshOK {
-		res.WebURL = fmt.Sprintf("http://%s:%d/", m.Host, port)
+		res.WebURL = fmt.Sprintf("http://%s:%d/", host, port)
 	}
 
 	// persist state + check

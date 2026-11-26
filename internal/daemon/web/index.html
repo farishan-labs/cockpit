@@ -22,6 +22,8 @@
   .dead { color: #f87171; }
   button { background: #2563eb; color: #fff; border: 0; padding: .4rem .8rem; border-radius: 6px; cursor: pointer; }
   button.danger { background: #dc2626; }
+  button:disabled { opacity: .6; cursor: not-allowed; }
+  .machine-status { margin-top: .35rem; font-size: .85rem; }
   select, input { background: #0b0d10; color: #e6e6e6; border: 1px solid #333; padding: .4rem; border-radius: 6px; }
   .row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
   h2 { margin-top: 0; }
@@ -163,32 +165,98 @@ async function refreshFleet() {
 refreshFleet();
 
 
+const machineState = {};
+function getMachineState(id) {
+  if (!machineState[id]) machineState[id] = { checking: false, pairing: false, error: '', message: '' };
+  return machineState[id];
+}
+function escapeHtml(str) {
+  return String(str == null ? '' : str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 async function refreshMachines() {
-  const r = await fetch('/api/machines');
-  const data = await r.json();
-  const ms = data.machines || [];
-  let html = '<table><thead><tr><th>Name</th><th>Host</th><th>T3</th><th></th></tr></thead><tbody>';
-  for (const m of ms) {
-    const t3 = (m.t3_state && m.t3_state.service_status) || 'unknown';
-    html += `<tr><td>${m.name||m.id}</td><td>${m.host}</td><td>${t3}</td><td>
-      <button onclick="checkMachine('${m.id}')">Re-check</button>
-      <button onclick="pairMachine('${m.id}')">Pair</button>
-    </td></tr>`;
+  const el = document.getElementById('machines');
+  try {
+    const r = await fetch('/api/machines');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    const ms = data.machines || [];
+    if (ms.length === 0) { el.innerHTML = 'none'; return; }
+    let html = '<table><thead><tr><th>Name</th><th>Host</th><th>T3</th><th></th></tr></thead><tbody>';
+    for (const m of ms) {
+      const t3 = (m.t3_state && m.t3_state.service_status) || 'unknown';
+      const st = getMachineState(m.id);
+      const checkLabel = st.checking ? 'Checking…' : 'Re-check';
+      const pairLabel = st.pairing ? 'Pairing…' : 'Pair';
+      html += `<tr><td>${escapeHtml(m.name||m.id)}</td><td>${escapeHtml(m.host)}</td><td>${escapeHtml(t3)}</td><td>
+        <button onclick="checkMachine('${escapeHtml(m.id)}')" ${st.checking||st.pairing?'disabled':''}>${checkLabel}</button>
+        <button onclick="pairMachine('${escapeHtml(m.id)}')" ${st.checking||st.pairing?'disabled':''}>${pairLabel}</button>
+        ${st.error ? `<div class="machine-status dead">${escapeHtml(st.error)}</div>` : ''}
+        ${st.message ? `<div class="machine-status live">${escapeHtml(st.message)}</div>` : ''}
+      </td></tr>`;
+    }
+    html += '</tbody></table>';
+    if (data.error) html = `<p class="dead">${escapeHtml(data.error)}</p>` + html;
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = `<p class="dead">Failed to load machines: ${escapeHtml(e && e.message ? e.message : e)}</p><button onclick="refreshMachines()">Retry</button>`;
   }
-  html += '</tbody></table>';
-  document.getElementById('machines').innerHTML = html || 'none';
 }
 refreshMachines();
 
 async function checkMachine(id) {
-  await fetch('/api/machines/check?name='+encodeURIComponent(id), {method:'POST'});
+  const st = getMachineState(id);
+  if (st.checking || st.pairing) return;
+  st.checking = true;
+  st.error = '';
+  st.message = '';
   refreshMachines();
+  try {
+    const r = await fetch('/api/machines/check?name=' + encodeURIComponent(id), {method:'POST'});
+    if (!r.ok) {
+      const text = await r.text();
+      throw new Error(text || ('HTTP ' + r.status));
+    }
+    const data = await r.json();
+    const res = Array.isArray(data) ? (data.find(x => x.machine_id === id || x.MachineID === id) || data[0]) : data;
+    if (res && res.ok === false) {
+      const failed = (res.steps || []).filter(s => !s.ok).map(s => (s.name ? s.name + ': ' : '') + (s.detail || 'failed')).join('; ');
+      throw new Error(failed || 'Check failed');
+    }
+    const url = res && (res.web_url || res.WebURL);
+    st.message = url ? ('Reachable: ' + url) : 'Check passed';
+  } catch (e) {
+    st.error = (e && e.message) ? e.message : 'Re-check failed';
+  } finally {
+    st.checking = false;
+    refreshMachines();
+  }
 }
+
 async function pairMachine(id) {
-  const r = await fetch('/api/machines/pair', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({machine:id})});
-  const data = await r.json();
-  alert(data.result || 'paired');
+  const st = getMachineState(id);
+  if (st.checking || st.pairing) return;
+  st.pairing = true;
+  st.error = '';
+  st.message = '';
   refreshMachines();
+  try {
+    const r = await fetch('/api/machines/pair', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({machine:id})});
+    const text = await r.text();
+    let data = {};
+    try { data = text ? JSON.parse(text) : {}; } catch (e) { data = { result: text }; }
+    if (!r.ok) {
+      throw new Error((data && (data.error || data.result)) || text || ('HTTP ' + r.status));
+    }
+    const result = data.result || data.Result || 'paired';
+    st.message = 'Paired';
+    alert(result);
+  } catch (e) {
+    st.error = (e && e.message) ? e.message : 'Pair failed';
+  } finally {
+    st.pairing = false;
+    refreshMachines();
+  }
 }
 
 async function refreshExtensions() {

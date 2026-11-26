@@ -450,7 +450,7 @@ func (d *Daemon) handleMachinesPair(w http.ResponseWriter, r *http.Request) {
 	if st, ok, _ := d.Store.GetT3State(target.ID); ok && st.Port > 0 {
 		port = st.Port
 	}
-	out, err := machines.PairMachine("", target.Host, tailscaleFlag, ttl)
+	out, err := machines.PairMachine("", target.ConnectHost(), tailscaleFlag, ttl)
 	if err != nil {
 		http.Error(w, err.Error()+"\n"+out, 500)
 		return
