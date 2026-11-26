@@ -185,12 +185,16 @@ async function refreshMachines() {
     let html = '<table><thead><tr><th>Name</th><th>Host</th><th>T3</th><th></th></tr></thead><tbody>';
     for (const m of ms) {
       const t3 = (m.t3_state && m.t3_state.service_status) || 'unknown';
+      const paired = t3 === 'ok' || t3 === 'paired';
+      const port = (m.t3_state && m.t3_state.port) || 3773;
+      const targetHost = (m.tunnel && m.tunnel.target) || m.host;
+      const webUrl = 'http://' + targetHost + ':' + port + '/';
       const st = getMachineState(m.id);
       const checkLabel = st.checking ? 'Checking…' : 'Re-check';
       const pairLabel = st.pairing ? 'Pairing…' : 'Pair';
-      html += `<tr><td>${escapeHtml(m.name||m.id)}</td><td>${escapeHtml(m.host)}</td><td>${escapeHtml(t3)}</td><td>
+      html += `<tr><td>${escapeHtml(m.name||m.id)}</td><td>${escapeHtml(m.host)}</td><td>${escapeHtml(t3)}${paired ? ' · <a href="${webUrl}" target="_blank" rel="noopener">${escapeHtml(webUrl)}</a>' : ''}</td><td>
         <button onclick="checkMachine('${escapeHtml(m.id)}')" ${st.checking||st.pairing?'disabled':''}>${checkLabel}</button>
-        <button onclick="pairMachine('${escapeHtml(m.id)}')" ${st.checking||st.pairing?'disabled':''}>${pairLabel}</button>
+        ${paired ? '' : `<button onclick="pairMachine('${escapeHtml(m.id)}')" ${st.checking||st.pairing?'disabled':''}>${pairLabel}</button>`}
         ${st.error ? `<div class="machine-status dead">${escapeHtml(st.error)}</div>` : ''}
         ${st.message ? `<div class="machine-status live">${escapeHtml(st.message)}</div>` : ''}
       </td></tr>`;
