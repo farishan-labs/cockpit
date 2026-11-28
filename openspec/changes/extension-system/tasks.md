@@ -12,8 +12,8 @@
 - [x] Make embedded web UI tab bar data-driven from `/api/extensions` (iframe tabs)
 - [x] Add `cockpit extension` to `cockpit doctor` output (best-effort)
 - [x] Add tests: manifest parse, discovery de-dup, proxy round-trip (mock upstream)
-- [ ] Update SPEC.md (extensions + aggregator)
-- [ ] Validate with `openspec validate extension-system`
+- [x] Update SPEC.md (extensions + aggregator)
+- [x] Validate with `openspec validate extension-system`
 - [ ] Hubton side: add `src/lib/cockpitContract.ts` + `/cockpit/health` + `/cockpit/manifest` endpoints
 - [ ] Hubton side: install manifest under `~/.config/cockpit/extensions/hubton` for this setup
 - [ ] Verify: FHL cockpit shows Hubton tabs; hubton standalone still works
