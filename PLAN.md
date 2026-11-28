@@ -25,9 +25,9 @@ silent reinvention.
 - [x] Go module scaffolded (go 1.24, cobra).
 - [x] SPEC.md, PRINCIPLES.md, PLAN.md, README.md.
 - [x] Principles externalized to farishan-labs/principles (linked, not vendored; see P-024).
-- [ ] LICENSE (Apache-2.0).
-- [ ] CI: gofmt, go vet, go test, build (GitHub Actions).
-- [ ] goreleaser config for single-binary releases.
+- [x] LICENSE (Apache-2.0).
+- [x] CI: gofmt, go vet, go test, build (GitHub Actions).
+- [x] goreleaser config for single-binary releases.
 
 ### M1 — Minimal viable cockpit
 

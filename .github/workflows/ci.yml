@@ -12,7 +12,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
-        with: { go-version: '1.24' }
-      - run: go build ./...
+        with: { go-version: '1.26' }
+      - name: gofmt
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "gofmt issues:"
+            gofmt -l .
+            exit 1
+          fi
       - run: go vet ./...
       - run: go test ./...
+      - run: go build ./...
