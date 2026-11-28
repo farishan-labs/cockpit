@@ -1,29 +1,29 @@
 package daemon
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
-	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/farishan-labs/cockpit/internal/storage"
 	"github.com/farishan-labs/cockpit/internal/config"
+	"github.com/farishan-labs/cockpit/internal/storage"
 	"github.com/farishan-labs/cockpit/internal/terminal"
 )
 
 type fakeBackend struct{}
 
-func (fakeBackend) Name() string                       { return "fake" }
-func (fakeBackend) Available() bool                    { return true }
+func (fakeBackend) Name() string    { return "fake" }
+func (fakeBackend) Available() bool { return true }
 func (fakeBackend) ListSessions() ([]terminal.Session, error) {
 	return nil, nil
 }
-func (fakeBackend) CreateSession(name, command string) error { return nil }
-func (fakeBackend) SendKeys(session, keys string) error      { return nil }
+func (fakeBackend) CreateSession(name, command string) error   { return nil }
+func (fakeBackend) SendKeys(session, keys string) error        { return nil }
 func (fakeBackend) CapturePane(session string) (string, error) { return "", nil }
-func (fakeBackend) KillSession(name string) error            { return nil }
+func (fakeBackend) KillSession(name string) error              { return nil }
 
 func TestMachinesPanelE2E(t *testing.T) {
 	dir, err := os.MkdirTemp("", "cockpit-e2e")
@@ -39,11 +39,11 @@ func TestMachinesPanelE2E(t *testing.T) {
 	defer store.Close()
 
 	cfg := config.Config{
-		Port:            0,
-		DBPath:          filepath.Join(dir, "cockpit.db"),
-		EventLogPath:    filepath.Join(dir, "events.jsonl"),
-		OpenBrowser:     false,
-		UserMDPath:      filepath.Join(dir, "USER.md"),
+		Port:         0,
+		DBPath:       filepath.Join(dir, "cockpit.db"),
+		EventLogPath: filepath.Join(dir, "events.jsonl"),
+		OpenBrowser:  false,
+		UserMDPath:   filepath.Join(dir, "USER.md"),
 	}
 
 	d := New(cfg, store, fakeBackend{})

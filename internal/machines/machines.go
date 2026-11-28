@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"regexp"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
@@ -201,13 +201,23 @@ func PairMachine(sshUser, host string, tailscale bool, ttl string) (string, erro
 	out, err := SSHRun(sshUser, host, cmd)
 	if err != nil {
 		if u := tailscaleAuthURL(out); u != "" {
-			acct := tailscaleAccount(); msg := "tailscale SSH approval required"; if acct != "" { msg += " (tailnet account: " + acct + ")" }; return "", fmt.Errorf("%s: visit %s", msg, u)
+			acct := tailscaleAccount()
+			msg := "tailscale SSH approval required"
+			if acct != "" {
+				msg += " (tailnet account: " + acct + ")"
+			}
+			return "", fmt.Errorf("%s: visit %s", msg, u)
 		}
 		// fallback without flags (only for flag-related failures)
 		out2, err2 := SSHRun(sshUser, host, "export PATH=\"$HOME/.local/bin:$PATH\"; t3 pair")
 		if err2 != nil {
 			if u := tailscaleAuthURL(out2); u != "" {
-				acct := tailscaleAccount(); msg := "tailscale SSH approval required"; if acct != "" { msg += " (tailnet account: " + acct + ")" }; return "", fmt.Errorf("%s: visit %s", msg, u)
+				acct := tailscaleAccount()
+				msg := "tailscale SSH approval required"
+				if acct != "" {
+					msg += " (tailnet account: " + acct + ")"
+				}
+				return "", fmt.Errorf("%s: visit %s", msg, u)
 			}
 			detail := strings.TrimSpace(out2)
 			if strings.Contains(detail, "command not found") || strings.Contains(detail, "not found") {

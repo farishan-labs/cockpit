@@ -582,9 +582,9 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 		},
 	})
 	for _, sub := range []struct {
-		use  string
+		use    string
 		toggle bool
-		val  bool
+		val    bool
 	}{
 		{"enable", true, true},
 		{"disable", true, false},
@@ -632,7 +632,6 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 	})
 	root.AddCommand(extCmd)
 
-
 	// machine command
 	machineCmd := &cobra.Command{Use: "machine", Short: "Manage remote machines (via machines product)."}
 	machineCmd.AddCommand(&cobra.Command{
@@ -651,15 +650,23 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := ""
-			if len(args) > 0 { name = args[0] }
+			if len(args) > 0 {
+				name = args[0]
+			}
 			cfg, _ := config.Load()
 			store, err := storage.Open(cfg.DBPath)
-			if err != nil { return err }
+			if err != nil {
+				return err
+			}
 			defer store.Close()
 			ms, _, err := machinesList()
-			if err != nil { return err }
+			if err != nil {
+				return err
+			}
 			for _, m := range ms {
-				if name != "" && m.ID != name && m.Name != name { continue }
+				if name != "" && m.ID != name && m.Name != name {
+					continue
+				}
 				fmt.Printf("machine %s (%s):\n", m.Name, m.Host)
 			}
 			_ = store
@@ -678,10 +685,14 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 			ts, _ := cmd.Flags().GetBool("tailscale")
 			cfg, _ := config.Load()
 			store, err := storage.Open(cfg.DBPath)
-			if err != nil { return err }
+			if err != nil {
+				return err
+			}
 			defer store.Close()
 			ms, _, err := machinesList()
-			if err != nil { return err }
+			if err != nil {
+				return err
+			}
 			var target *machineItem
 			for i := range ms {
 				if ms[i].ID == args[0] || ms[i].Name == args[0] {
@@ -689,11 +700,13 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 					break
 				}
 			}
-			if target == nil { return fmt.Errorf("machine not found") }
+			if target == nil {
+				return fmt.Errorf("machine not found")
+			}
 			out, err := exec.Command("ssh", "-o", "BatchMode=yes", target.Host, "t3 pair").CombinedOutput()
 			_ = ts
 			if err != nil {
-				// try local t3? 
+				// try local t3?
 			}
 			fmt.Println(string(out))
 			if ttl != "" {
@@ -716,7 +729,6 @@ into one minimal, extensible control plane. It reuses wheels; it does not reinve
 // runUserMDCheck runs the optional usermd-check binary on path. It warns and
 // returns nil when the binary is absent.
 
-
 type machineItem struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
@@ -737,7 +749,6 @@ func machinesList() ([]machineItem, string, error) {
 	}
 	return data.Machines, data.DefaultMachineID, nil
 }
-
 
 func runUserMDCheck(path string) error {
 	bin, err := exec.LookPath("usermd-check")

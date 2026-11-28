@@ -18,13 +18,13 @@ import (
 
 // Meta holds manifest metadata.
 type Meta struct {
-	Name            string `toml:"name"`
-	Version         string `toml:"version"`
-	Schema          int    `toml:"schema"`
-	Status          string `toml:"status"`
-	CanonicalRepo   string `toml:"canonical_repo"`
-	CanonicalPath   string `toml:"canonical_path"`
-	Updated         string `toml:"updated"`
+	Name          string `toml:"name"`
+	Version       string `toml:"version"`
+	Schema        int    `toml:"schema"`
+	Status        string `toml:"status"`
+	CanonicalRepo string `toml:"canonical_repo"`
+	CanonicalPath string `toml:"canonical_path"`
+	Updated       string `toml:"updated"`
 }
 
 // Identity holds identity-related paths.
@@ -54,10 +54,10 @@ type Spec struct {
 
 // Harness holds harness configuration.
 type Harness struct {
-	Primary          string   `toml:"primary"`
-	TargetPrimary    string   `toml:"target_primary"`
-	MigrationStatus  string   `toml:"migration_status"`
-	Available        []string `toml:"available"`
+	Primary         string   `toml:"primary"`
+	TargetPrimary   string   `toml:"target_primary"`
+	MigrationStatus string   `toml:"migration_status"`
+	Available       []string `toml:"available"`
 }
 
 // Mode holds work/personal mode configuration.
@@ -80,12 +80,12 @@ type Paths struct {
 
 // Conventions holds convention flags.
 type Conventions struct {
-	Principles        string `toml:"principles"`
-	SearchGuard       bool   `toml:"search_guard"`
-	BroadSearchBlocked bool  `toml:"broad_search_blocked"`
-	TrashRule         string `toml:"trash_rule"`
-	CommitAuthor      string `toml:"commit_author"`
-	WorkPersonalSplit bool   `toml:"work_personal_split"`
+	Principles         string `toml:"principles"`
+	SearchGuard        bool   `toml:"search_guard"`
+	BroadSearchBlocked bool   `toml:"broad_search_blocked"`
+	TrashRule          string `toml:"trash_rule"`
+	CommitAuthor       string `toml:"commit_author"`
+	WorkPersonalSplit  bool   `toml:"work_personal_split"`
 }
 
 // Github holds GitHub account info.
@@ -105,11 +105,11 @@ type Providers struct {
 
 // Cockpit holds cockpit integration paths.
 type Cockpit struct {
-	Config            string `toml:"config"`
-	UserMDPathKey     string `toml:"user_md_path_key"`
-	DoctorRunsUsermd  bool   `toml:"doctor_runs_usermd_check"`
-	LaunchExports     string `toml:"launch_exports"`
-	OperatorPanel     bool   `toml:"operator_panel"`
+	Config           string `toml:"config"`
+	UserMDPathKey    string `toml:"user_md_path_key"`
+	DoctorRunsUsermd bool   `toml:"doctor_runs_usermd_check"`
+	LaunchExports    string `toml:"launch_exports"`
+	OperatorPanel    bool   `toml:"operator_panel"`
 }
 
 // UserMD holds user-md integration.
@@ -126,19 +126,19 @@ type OpenSpec struct {
 
 // Manifest is the parsed workflow.toml.
 type Manifest struct {
-	Meta         Meta         `toml:"meta"`
-	Identity     Identity     `toml:"identity"`
-	Memory       Memory       `toml:"memory"`
-	Spec         Spec         `toml:"spec"`
-	Harness      Harness      `toml:"harness"`
-	Mode         Mode         `toml:"mode"`
-	Paths        Paths        `toml:"paths"`
-	Conventions  Conventions  `toml:"conventions"`
-	Github       Github       `toml:"github"`
-	Providers    Providers    `toml:"providers"`
-	Cockpit      Cockpit      `toml:"cockpit"`
-	UserMD       UserMD       `toml:"usermd"`
-	OpenSpec     OpenSpec     `toml:"openspec"`
+	Meta        Meta        `toml:"meta"`
+	Identity    Identity    `toml:"identity"`
+	Memory      Memory      `toml:"memory"`
+	Spec        Spec        `toml:"spec"`
+	Harness     Harness     `toml:"harness"`
+	Mode        Mode        `toml:"mode"`
+	Paths       Paths       `toml:"paths"`
+	Conventions Conventions `toml:"conventions"`
+	Github      Github      `toml:"github"`
+	Providers   Providers   `toml:"providers"`
+	Cockpit     Cockpit     `toml:"cockpit"`
+	UserMD      UserMD      `toml:"usermd"`
+	OpenSpec    OpenSpec    `toml:"openspec"`
 }
 
 // Path returns the runtime manifest path.

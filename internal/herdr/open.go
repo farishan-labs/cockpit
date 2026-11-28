@@ -16,11 +16,11 @@ type tab struct {
 	Terminals []terminal `json:"terminals"`
 }
 type space struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Folder  string `json:"folder"`
-	Active  bool   `json:"active"`
-	Tabs    []tab  `json:"tabs"`
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Folder string `json:"folder"`
+	Active bool   `json:"active"`
+	Tabs   []tab  `json:"tabs"`
 }
 
 type lsOut struct {

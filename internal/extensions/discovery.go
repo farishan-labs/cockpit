@@ -10,8 +10,8 @@ import (
 
 // Discovered bundles a manifest with its source location.
 type Discovered struct {
-	Manifest  Manifest
-	Dir       string
+	Manifest     Manifest
+	Dir          string
 	ManifestPath string
 }
 

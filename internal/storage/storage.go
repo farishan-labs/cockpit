@@ -206,13 +206,13 @@ func AppendJSONL(path string, v any) error {
 
 // Extension record.
 type Extension struct {
-	Name     string    `json:"name"`
-	Kind     string    `json:"kind"`
-	Version  string    `json:"version"`
-	Enabled  bool      `json:"enabled"`
-	Available bool     `json:"available"`
-	LastSync *time.Time `json:"last_sync,omitempty"`
-	LastSeen *time.Time `json:"last_seen,omitempty"`
+	Name      string     `json:"name"`
+	Kind      string     `json:"kind"`
+	Version   string     `json:"version"`
+	Enabled   bool       `json:"enabled"`
+	Available bool       `json:"available"`
+	LastSync  *time.Time `json:"last_sync,omitempty"`
+	LastSeen  *time.Time `json:"last_seen,omitempty"`
 }
 
 // UpsertExtension inserts or updates an extension row.

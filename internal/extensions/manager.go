@@ -40,9 +40,9 @@ type Info struct {
 
 // Manager discovers and tracks extensions.
 type Manager struct {
-	store    *storage.Store
+	store      *storage.Store
 	discovered []Discovered
-	native   map[string]Extension
+	native     map[string]Extension
 }
 
 // NewManager creates a manager.

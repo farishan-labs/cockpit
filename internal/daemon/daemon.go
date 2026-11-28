@@ -17,9 +17,9 @@ import (
 
 	"github.com/farishan-labs/cockpit/internal/adapters"
 	"github.com/farishan-labs/cockpit/internal/agents"
-	"github.com/farishan-labs/cockpit/internal/machines"
 	"github.com/farishan-labs/cockpit/internal/config"
 	"github.com/farishan-labs/cockpit/internal/extensions"
+	"github.com/farishan-labs/cockpit/internal/machines"
 	"github.com/farishan-labs/cockpit/internal/storage"
 	"github.com/farishan-labs/cockpit/internal/terminal"
 	"github.com/google/uuid"
@@ -31,29 +31,29 @@ var webFS embed.FS
 
 // Daemon is the cockpit core.
 type Daemon struct {
-	Cfg         config.Config
-	Store       *storage.Store
-	Backend     terminal.Backend
-	adapters    []adapters.Adapter
-	agents      []agents.Agent
-	extensions  *extensions.Manager
-	upgrader    websocket.Upgrader
-	clients     map[*websocket.Conn]bool
-	broadcast   chan []byte
+	Cfg        config.Config
+	Store      *storage.Store
+	Backend    terminal.Backend
+	adapters   []adapters.Adapter
+	agents     []agents.Agent
+	extensions *extensions.Manager
+	upgrader   websocket.Upgrader
+	clients    map[*websocket.Conn]bool
+	broadcast  chan []byte
 }
 
 // New creates a daemon.
 func New(cfg config.Config, store *storage.Store, backend terminal.Backend) *Daemon {
 	d := &Daemon{
-		Cfg:         cfg,
-		Store:       store,
-		Backend:     backend,
-		adapters:    adapters.All(),
-		agents:      agents.Detect(),
-		extensions:  extensions.NewManager(store),
-		upgrader:    websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
-		clients:     make(map[*websocket.Conn]bool),
-		broadcast:   make(chan []byte, 64),
+		Cfg:        cfg,
+		Store:      store,
+		Backend:    backend,
+		adapters:   adapters.All(),
+		agents:     agents.Detect(),
+		extensions: extensions.NewManager(store),
+		upgrader:   websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
+		clients:    make(map[*websocket.Conn]bool),
+		broadcast:  make(chan []byte, 64),
 	}
 	// record agents
 	for _, a := range d.agents {
@@ -340,7 +340,6 @@ func (d *Daemon) handleOperator(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
-
 func (d *Daemon) handleMachines(w http.ResponseWriter, r *http.Request) {
 	ms, _, err := machines.ListMachines()
 	if err != nil {
@@ -427,10 +426,14 @@ func (d *Daemon) handleMachinesPair(w http.ResponseWriter, r *http.Request) {
 	if machine == "" {
 		json.NewDecoder(r.Body).Decode(&req)
 		machine = req.Machine
-		if ttl == "" { ttl = req.TTL }
+		if ttl == "" {
+			ttl = req.TTL
+		}
 		tailscaleFlag = tailscaleFlag || req.Tailscale
 	}
-	if ttl == "" { ttl = "24h" }
+	if ttl == "" {
+		ttl = "24h"
+	}
 	ms, _, err := machines.ListMachines()
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -484,9 +487,6 @@ func (d *Daemon) handleMachinesPair(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]any{"machine": target.ID, "result": out})
 }
 
-
-
-
 func (d *Daemon) handleMachinesUnpair(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", 405)
@@ -526,7 +526,6 @@ func (d *Daemon) handleMachinesUnpair(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"machine": target.ID, "result": "unpaired"})
 }
-
 
 func (d *Daemon) handleFleet(w http.ResponseWriter, r *http.Request) {
 	type proc struct {
@@ -610,7 +609,6 @@ func (d *Daemon) handleExtensions(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(d.extensions.All())
 }
 
-
 func (d *Daemon) handleWS(w http.ResponseWriter, r *http.Request) {
 	conn, err := d.upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -641,7 +639,6 @@ func openBrowser(url string) {
 		}
 	}
 }
-
 
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
