@@ -1,8 +1,8 @@
 ## Tasks
 
-- [ ] Create `internal/extensions` package: manifest struct, discovery (dir + env), validation
-- [ ] Define `extensions.Extension` interface and `Tab`/`Command` types
-- [ ] Add native extension registration (build-tag or explicit list) and `Mount`
+- [x] Create `internal/extensions` package: manifest struct, discovery (dir + env), validation
+- [x] Define `extensions.Extension` interface and `Tab`/`Command` types
+- [x] Add native extension registration (build-tag or explicit list) and `Mount`
 - [ ] Implement remote extension HTTP contract client (`/cockpit/health`, `/cockpit/manifest`)
 - [ ] Add SQLite `extensions` table + migration in `internal/storage`
 - [ ] Implement enable/disable persistence and `available`/`last_sync` updates
